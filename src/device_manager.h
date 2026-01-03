@@ -10,6 +10,9 @@
 
 using namespace godot;
 
+std::string wStringToString(const wchar_t* wstr, int size);
+std::string getDeviceName(PRAWINPUTDEVICELIST pRawInputDeviceList, int index);
+
 class DeviceManager : public godot::RefCounted {
 	GDCLASS(DeviceManager, godot::RefCounted)
 

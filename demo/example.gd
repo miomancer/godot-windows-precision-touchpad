@@ -2,5 +2,5 @@ extends Node
 
 
 func _ready() -> void:
-	var example := DeviceManager.new()
-	print(example.get_device_list())
+	var device_manager := DeviceManager.new()
+	print(device_manager.get_device_list())

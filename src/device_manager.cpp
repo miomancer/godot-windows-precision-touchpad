@@ -18,32 +18,58 @@ std::string wStringToString(const wchar_t* wstr, int size)
 
 std::string getDeviceName(PRAWINPUTDEVICELIST pRawInputDeviceList, int index) {
 	HANDLE hDevice = pRawInputDeviceList[index].hDevice;
-		UINT uiCommand = RIDI_DEVICENAME;
-		UINT pcbSize = 0;
-		int bytesRead = GetRawInputDeviceInfoW(hDevice, uiCommand, NULL, &pcbSize);
+	UINT uiCommand = RIDI_DEVICENAME;
+	UINT pcbSize = 0;
+	int bytesRead = GetRawInputDeviceInfoW(hDevice, uiCommand, NULL, &pcbSize);
+	if (bytesRead == (UINT)-1)
+	{
+		return "";
+	}
+
+	//std::cout << "Name size (in characters): " + std::to_string((int)pcbSize) << std::endl;
+
+	// Using a wide character array here is extremely important, Win32 W functions use UTF-16 strings (kinda)
+	wchar_t* szDeviceName = new wchar_t[pcbSize];
+
+	if (pcbSize > 0) {
+		bytesRead = GetRawInputDeviceInfoW(hDevice, uiCommand, szDeviceName, &pcbSize);
+		//std::cout << "Bytes read: " + std::to_string((int)bytesRead) << std::endl;
 		if (bytesRead == (UINT)-1)
 		{
-			return "";
+			print_line(vformat("Error code: ", (int)GetLastError()));
 		}
+	}
 
-		//std::cout << "Name size (in characters): " + std::to_string((int)pcbSize) << std::endl;
-
-		// Using a wide character array here is extremely important, Win32 W functions use UTF-16 strings (kinda)
-		wchar_t* szDeviceName = new wchar_t[pcbSize];
-
-		if (pcbSize > 0) {
-			bytesRead = GetRawInputDeviceInfoW(hDevice, uiCommand, szDeviceName, &pcbSize);
-			//std::cout << "Bytes read: " + std::to_string((int)bytesRead) << std::endl;
-			if (bytesRead == (UINT)-1)
-			{
-				print_line(vformat("Error code: ", (int)GetLastError()));
-			}
-		}
-
-		std::string deviceName = wStringToString(szDeviceName, pcbSize);
-		delete[] szDeviceName;
+	std::string deviceName = wStringToString(szDeviceName, pcbSize);
+	delete[] szDeviceName;
 	return deviceName;
 }
+
+void getDeviceInfo(PRAWINPUTDEVICELIST pRawInputDeviceList, int index, RID_DEVICE_INFO* deviceInfo) {
+	HANDLE hDevice = pRawInputDeviceList[index].hDevice;
+	UINT uiCommand = RIDI_DEVICEINFO;
+	UINT pcbSize = 0;
+	int bytesRead = GetRawInputDeviceInfoW(hDevice, uiCommand, NULL, &pcbSize);
+	/* if (bytesRead == (UINT)-1)
+	{
+		return "";
+	} */
+
+	//std::cout << "Name size (in characters): " + std::to_string((int)pcbSize) << std::endl;
+
+	// Using a wide character array here is extremely important, Win32 W functions use UTF-16 strings (kinda)
+
+	if (pcbSize > 0) {
+		bytesRead = GetRawInputDeviceInfoW(hDevice, uiCommand, deviceInfo, &pcbSize);
+		//std::cout << "Bytes read: " + std::to_string((int)bytesRead) << std::endl;
+		if (bytesRead == (UINT)-1)
+		{
+			print_line(vformat("Error code: %d", (int)GetLastError()));
+		}
+	}
+}
+
+
 
 godot::Array DeviceManager::get_device_list() {
 	UINT numDevices = 0;
@@ -81,6 +107,20 @@ godot::Array DeviceManager::get_device_list() {
 	{
 		std::string deviceName = getDeviceName(pRawInputDeviceList, i);
 		print_line("Current device name: " + godot::String(deviceName.c_str()));
+
+		// Skip non-HID devices (mice, keyboards)
+		if (pRawInputDeviceList[i].dwType != RIM_TYPEHID) {
+			continue;
+		}
+		RID_DEVICE_INFO deviceInfo = RID_DEVICE_INFO();
+		getDeviceInfo(pRawInputDeviceList, i, &deviceInfo);
+		print_line(vformat("Current device usage page: %d", (int)deviceInfo.hid.usUsagePage));
+		print_line(vformat("Current device usage: %d", (int)deviceInfo.hid.usUsage));
+		// Skip non-digitizer non-touch pad devices
+		if ((int)deviceInfo.hid.usUsagePage != 13 || (int)deviceInfo.hid.usUsage != 5) {
+			continue;
+		}
+		// If you've made it this far, you're a trackpad
 	}
 	delete[] pRawInputDeviceList;
 	return deviceList;
