@@ -117,10 +117,11 @@ godot::Array DeviceManager::get_device_list() {
 		print_line(vformat("Current device usage page: %d", (int)deviceInfo.hid.usUsagePage));
 		print_line(vformat("Current device usage: %d", (int)deviceInfo.hid.usUsage));
 		// Skip non-digitizer non-touch pad devices
-		if ((int)deviceInfo.hid.usUsagePage != 13 || (int)deviceInfo.hid.usUsage != 5) {
+		if ((int)deviceInfo.hid.usUsagePage != HID_USAGE_PAGE_DIGITIZER || (int)deviceInfo.hid.usUsage != HID_USAGE_DIGITIZER_TOUCH_PAD) {
 			continue;
 		}
 		// If you've made it this far, you're a trackpad
+		print_line("This is a trackpad!");
 	}
 	delete[] pRawInputDeviceList;
 	return deviceList;

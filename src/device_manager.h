@@ -5,6 +5,7 @@
 #include "godot_cpp/variant/variant.hpp"
 
 #include <windows.h>
+#include <hidusage.h>
 
 #pragma comment(lib, "User32.lib")
 
