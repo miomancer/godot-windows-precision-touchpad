@@ -15,5 +15,18 @@
 				Returns a list of connected devices.
 			</description>
 		</method>
+		<method name="set_window">
+			<param index="0" name="window_handle" type="int" />
+			<return type="int" />
+			<description>
+				Sets the window to the provided window handle.
+			</description>
+		</method>
+		<method name="register_touchpads">
+			<return type="int" />
+			<description>
+				Registers touchpads to the current window.
+			</description>
+		</method>
 	</methods>
 </class>
