@@ -4,6 +4,7 @@ var device_manager : DeviceManager
 
 
 func _ready() -> void:
+	#Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 	device_manager = DeviceManager.new()
 	setup_tp()
 

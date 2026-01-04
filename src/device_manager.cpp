@@ -3,8 +3,6 @@
 //#include <windows.h>
 //#include <hidsdi.h>
 
-#define MAX_LOADSTRING 100
-
 std::string wStringToString(const wchar_t* wstr, int size);
 std::string getDeviceName(HANDLE hDevice);
 void getDeviceInfo(PRAWINPUTDEVICELIST pRawInputDeviceList, int index, RID_DEVICE_INFO* deviceInfo);
@@ -36,17 +34,22 @@ std::string wStringToString(const wchar_t* wstr, int size)
 	return str;
 }
 
-void getDevicePreparsedData(HANDLE hDevice, PHIDP_PREPARSED_DATA devicePreparsedData) {
+
+void getHidDPreparsedData(HANDLE hDevice, PHIDP_PREPARSED_DATA devicePreparsedData) {
+	if (HidD_GetPreparsedData(hDevice, &devicePreparsedData) == false) {
+		print_line(vformat("ERROR: Could not get HidD preparsed data. Error code: %d", (int)GetLastError()));
+	}
+}
+
+void getDevicePreparsedData(HANDLE hDevice, PHIDP_PREPARSED_DATA devicePreparsedData, UINT pcbSize) {
 	UINT uiCommand = RIDI_PREPARSEDDATA;
-	UINT pcbSize = 0;
-	int bytesRead = GetRawInputDeviceInfoW(hDevice, uiCommand, NULL, &pcbSize);
 
 	if (pcbSize > 0) {
-		bytesRead = GetRawInputDeviceInfoW(hDevice, uiCommand, devicePreparsedData, &pcbSize);
-		//std::cout << "Bytes read: " + std::to_string((int)bytesRead) << std::endl;
-		if (bytesRead == (UINT)-1)
+		int bytesRead = GetRawInputDeviceInfoW(hDevice, uiCommand, devicePreparsedData, &pcbSize);
+		std::cout << "Bytes read: " + std::to_string((int)bytesRead) << std::endl;
+		if (bytesRead == -1)
 		{
-			print_line(vformat("Error code: ", (int)GetLastError()));
+			std::cout << "Could not get preparsed data. Error code: " + std::to_string((int)GetLastError()) << std::endl;
 		}
 	}
 }
@@ -69,7 +72,7 @@ void getDeviceInfo(HANDLE hDevice, RID_DEVICE_INFO* deviceInfo) {
 		//std::cout << "Bytes read: " + std::to_string((int)bytesRead) << std::endl;
 		if (bytesRead == (UINT)-1)
 		{
-			print_line(vformat("Error code: %d", (int)GetLastError()));
+			print_line(vformat("ERROR: Could not get device info. Error code: %d", (int)GetLastError()));
 		}
 	}
 }
@@ -93,7 +96,7 @@ std::string getDeviceName(HANDLE hDevice) {
 		//std::cout << "Bytes read: " + std::to_string((int)bytesRead) << std::endl;
 		if (bytesRead == (UINT)-1)
 		{
-			print_line(vformat("Error code: ", (int)GetLastError()));
+			print_line(vformat("ERROR: Could not get device name. Error code: %d", (int)GetLastError()));
 		}
 	}
 
@@ -105,30 +108,8 @@ std::string getDeviceName(HANDLE hDevice) {
 int DeviceManager::set_window(int64_t window_handle) {
 	DeviceManager::windowHandle = (HWND)IntToPtr(window_handle);
 	if (RegisterTouchWindow(DeviceManager::windowHandle, TWF_FINETOUCH | TWF_WANTPALM) == 0) {
-		print_line(vformat("Touch window registration failed. Error code: %d", (int)GetLastError()));
+		print_line(vformat("ERROR: Touch window registration failed. Error code: %d", (int)GetLastError()));
 	}
-
-	/* //HINSTANCE hInstance = GetModuleHandleW(NULL);
-	HINSTANCE hInstance = (HINSTANCE)GetWindowLongPtrW(DeviceManager::windowHandle, GWLP_HINSTANCE);
-	wchar_t className[27] = L"godot cpp template (DEBUG)";
-
-	WNDCLASSEXW wcex;
-	wcex.cbSize         = sizeof(WNDCLASSEX);
-	wcex.style          = CS_HREDRAW | CS_VREDRAW;
-    wcex.lpfnWndProc    = WndProc;
-    wcex.cbClsExtra     = 0;
-    wcex.cbWndExtra     = 0;
-    wcex.hInstance      = hInstance;
-    wcex.hIcon          = NULL;
-    wcex.hCursor        = LoadCursor(nullptr, IDC_ARROW);
-    wcex.hbrBackground  = (HBRUSH)(COLOR_WINDOW+1);
-    wcex.lpszMenuName   = NULL;
-    wcex.lpszClassName  = className;
-    wcex.hIconSm        = NULL;
-
-	if (RegisterClassExW(&wcex) == 0) {
-		print_line(vformat("Class registration failed. Error code: %d", (int)GetLastError()));
-	} */
 
 	origWndProc = (WNDPROC)GetWindowLongPtrW(DeviceManager::windowHandle, GWLP_WNDPROC);
 
@@ -149,10 +130,10 @@ int DeviceManager::register_touchpads() {
 	Rid[0].dwFlags = RIDEV_INPUTSINK;
 	Rid[0].hwndTarget = DeviceManager::windowHandle;
 
-	if (RegisterRawInputDevices(Rid, 1, sizeof(Rid[0])) == FALSE)
+	if (RegisterRawInputDevices(Rid, 1, sizeof(Rid[0])) == false)
 	{
 		//registration failed. Call GetLastError for the cause of the error.
-		print_line(vformat("Error code: %d", (int)GetLastError()));
+		print_line(vformat("ERROR: Could not register touchpads. Error code: %d", (int)GetLastError()));
 	}
 
 
@@ -229,11 +210,11 @@ godot::Array DeviceManager::get_device_list() {
 		// If you've made it this far, you're a trackpad
 		print_line("This is a trackpad!");
 
-		PHIDP_PREPARSED_DATA devicePreparsedData = PHIDP_PREPARSED_DATA();
+		/* PHIDP_PREPARSED_DATA devicePreparsedData = PHIDP_PREPARSED_DATA();
 		getDevicePreparsedData(hDevice, devicePreparsedData);
 		HIDP_CAPS caps = HIDP_CAPS();
 		HidP_GetCaps(devicePreparsedData, &caps);
-		print_line(vformat("Trackpad NumberInputButtonCaps: %d", (int)caps.NumberInputButtonCaps));
+		print_line(vformat("Trackpad NumberInputButtonCaps: %d", (int)caps.NumberInputButtonCaps)); */
 	}
 	delete[] pRawInputDeviceList;
 	return deviceList;
@@ -248,7 +229,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
 	switch(uMsg)
 	{
 		case WM_INPUT:
-			print_line(vformat("Message recieved: %d", (int)uMsg));
+			//print_line(vformat("Message recieved: %d", (int)uMsg));
 
 			HRAWINPUT hRawInput = (HRAWINPUT)lParam;
 
@@ -260,7 +241,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
 			LPBYTE lpb = new BYTE[dwSize];
 
 			if (GetRawInputData(hRawInput, RID_INPUT, lpb, &dwSize, sizeof(RAWINPUTHEADER)) != dwSize) {
-				print_line("Wrong buffer size!");
+				print_line("Incorrect buffer size.");
 			}
 
 			RAWINPUT* raw = (RAWINPUT*)lpb;
@@ -276,15 +257,65 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
 			getDeviceInfo(hDevice, &deviceInfo);
 
 			bool isTrackpad = false;
-			if (deviceInfo.hid.usUsagePage == HID_USAGE_PAGE_DIGITIZER && deviceInfo.hid.usUsage == HID_USAGE_DIGITIZER_TOUCH_PAD) {
+			if (raw->header.dwType == RIM_TYPEHID && deviceInfo.hid.usUsagePage == HID_USAGE_PAGE_DIGITIZER && deviceInfo.hid.usUsage == HID_USAGE_DIGITIZER_TOUCH_PAD) {
 				isTrackpad = true;
 			}
 			if (isTrackpad) {
-				PHIDP_PREPARSED_DATA devicePreparsedData = PHIDP_PREPARSED_DATA();
-				getDevicePreparsedData(hDevice, devicePreparsedData);
+
+
+				//DWORD rawDataSize = raw->header.dwSize;
+				//LPBYTE lpb = new BYTE[rawDataSize];
+				//RAWINPUT* raw = (RAWINPUT*)lpb;
+
+				
+				print_line(vformat("Input size: %d", (int)raw->data.hid.dwSizeHid));
+				print_line(vformat("Input count: %d", (int)raw->data.hid.dwCount));
+
+
+				UINT pcbSize = 0;
+				int bytesRead = GetRawInputDeviceInfoW(hDevice, RIDI_PREPARSEDDATA, NULL, &pcbSize);
+				LPBYTE dataBuffer = new BYTE[pcbSize];
+				PHIDP_PREPARSED_DATA devicePreparsedData = (PHIDP_PREPARSED_DATA)dataBuffer;
+				getDevicePreparsedData(hDevice, devicePreparsedData, pcbSize);
+				
 				HIDP_CAPS caps = HIDP_CAPS();
-				HidP_GetCaps(devicePreparsedData, &caps);
+				if (HidP_GetCaps(devicePreparsedData, &caps) != HIDP_STATUS_SUCCESS) {
+					print_line("The specified preparsed data is invalid. ");
+				}
+
 				print_line(vformat("Trackpad NumberInputButtonCaps: %d", (int)caps.NumberInputButtonCaps));
+				print_line(vformat("Trackpad NumberInputValueCaps: %d", (int)caps.NumberInputValueCaps));
+				USHORT numButtonCaps = caps.NumberInputButtonCaps;
+				USHORT numValueCaps = caps.NumberInputValueCaps;
+
+
+
+				LPBYTE buttonCapsBuffer = new BYTE[numButtonCaps * sizeof(HIDP_BUTTON_CAPS)];
+				PHIDP_BUTTON_CAPS buttonCaps = (PHIDP_BUTTON_CAPS)buttonCapsBuffer;
+				
+				if (HidP_GetButtonCaps(HidP_Input, buttonCaps, &numButtonCaps, devicePreparsedData) != HIDP_STATUS_SUCCESS) {
+					print_line(vformat("ERROR: Get button caps failed. Error code: %d", (int)GetLastError()));
+				}
+
+
+				
+
+
+				/* LPBYTE reportBuffer = new BYTE[caps.InputReportByteLength]{};
+				//reportBuffer[0] = (BYTE)HID_USAGE_DIGITIZER_TOUCH_PAD;
+				PVOID inputReportData = (PVOID)reportBuffer;
+
+				if (HidD_GetInputReport(hDevice, inputReportData, caps.InputReportByteLength) == false)
+				{
+					print_line(vformat("HidD_GetInputReport() failed. Error code: %d", (int)GetLastError()));
+				}
+
+
+
+				delete[] reportBuffer; */
+
+				delete[] buttonCapsBuffer;
+				delete[] dataBuffer;
 			}
 
 			delete[] lpb;
