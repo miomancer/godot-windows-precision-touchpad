@@ -1,12 +1,20 @@
 extends Node
 
+var device_manager : DeviceManager
+
 
 func _ready() -> void:
-	var device_manager := DeviceManager.new()
-	#print(device_manager.get_device_list())
+	device_manager = DeviceManager.new()
+	setup_tp()
+
+func _process(delta):
+	if Input.is_action_just_pressed("ui_accept"):
+		print("ACCEPT")
+	if Input.is_action_just_pressed("ui_cancel"):
+		print("CANCEL")
+
+func setup_tp():
 	var window_id = 0 # Default ID for the main window
 	var window_handle = DisplayServer.window_get_native_handle(DisplayServer.WINDOW_HANDLE, window_id)
-	print("Window Handle: ", window_handle)
 	device_manager.set_window(window_handle)
-	print(device_manager.register_touchpads())
-	
+	device_manager.register_touchpads()

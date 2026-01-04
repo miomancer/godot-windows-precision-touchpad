@@ -17,6 +17,13 @@ void DeviceManager::_bind_methods() {
 	godot::ClassDB::bind_method(godot::D_METHOD("register_touchpads"), &DeviceManager::register_touchpads);
 }
 
+DeviceManager::DeviceManager() {
+	singleton = this;
+}
+DeviceManager::~DeviceManager() {
+	singleton = nullptr;
+}
+
 std::string wStringToString(const wchar_t* wstr, int size)
 {
 	std::string str = "";
@@ -29,8 +36,7 @@ std::string wStringToString(const wchar_t* wstr, int size)
 	return str;
 }
 
-void getDevicePreparsedData(PRAWINPUTDEVICELIST pRawInputDeviceList, int index, PHIDP_PREPARSED_DATA devicePreparsedData) {
-	HANDLE hDevice = pRawInputDeviceList[index].hDevice;
+void getDevicePreparsedData(HANDLE hDevice, PHIDP_PREPARSED_DATA devicePreparsedData) {
 	UINT uiCommand = RIDI_PREPARSEDDATA;
 	UINT pcbSize = 0;
 	int bytesRead = GetRawInputDeviceInfoW(hDevice, uiCommand, NULL, &pcbSize);
@@ -45,8 +51,7 @@ void getDevicePreparsedData(PRAWINPUTDEVICELIST pRawInputDeviceList, int index, 
 	}
 }
 
-void getDeviceInfo(PRAWINPUTDEVICELIST pRawInputDeviceList, int index, RID_DEVICE_INFO* deviceInfo) {
-	HANDLE hDevice = pRawInputDeviceList[index].hDevice;
+void getDeviceInfo(HANDLE hDevice, RID_DEVICE_INFO* deviceInfo) {
 	UINT uiCommand = RIDI_DEVICEINFO;
 	UINT pcbSize = 0;
 	int bytesRead = GetRawInputDeviceInfoW(hDevice, uiCommand, NULL, &pcbSize);
@@ -97,14 +102,15 @@ std::string getDeviceName(HANDLE hDevice) {
 	return deviceName;
 }
 
-int DeviceManager::set_window(int window_handle) {
+int DeviceManager::set_window(int64_t window_handle) {
 	DeviceManager::windowHandle = (HWND)IntToPtr(window_handle);
-
 	if (RegisterTouchWindow(DeviceManager::windowHandle, TWF_FINETOUCH | TWF_WANTPALM) == 0) {
 		print_line(vformat("Touch window registration failed. Error code: %d", (int)GetLastError()));
 	}
 
-	HINSTANCE hInstance = GetModuleHandleW(NULL);
+	/* //HINSTANCE hInstance = GetModuleHandleW(NULL);
+	HINSTANCE hInstance = (HINSTANCE)GetWindowLongPtrW(DeviceManager::windowHandle, GWLP_HINSTANCE);
+	wchar_t className[27] = L"godot cpp template (DEBUG)";
 
 	WNDCLASSEXW wcex;
 	wcex.cbSize         = sizeof(WNDCLASSEX);
@@ -117,12 +123,17 @@ int DeviceManager::set_window(int window_handle) {
     wcex.hCursor        = LoadCursor(nullptr, IDC_ARROW);
     wcex.hbrBackground  = (HBRUSH)(COLOR_WINDOW+1);
     wcex.lpszMenuName   = NULL;
-    wcex.lpszClassName  = L"godot cpp template (DEBUG)";
+    wcex.lpszClassName  = className;
     wcex.hIconSm        = NULL;
 
 	if (RegisterClassExW(&wcex) == 0) {
 		print_line(vformat("Class registration failed. Error code: %d", (int)GetLastError()));
-	}
+	} */
+
+	origWndProc = (WNDPROC)GetWindowLongPtrW(DeviceManager::windowHandle, GWLP_WNDPROC);
+
+	SetWindowLongPtrW(DeviceManager::windowHandle, GWLP_WNDPROC, (LONG_PTR)*WndProc);
+	
 
 	return 0;
 }
@@ -141,9 +152,28 @@ int DeviceManager::register_touchpads() {
 	if (RegisterRawInputDevices(Rid, 1, sizeof(Rid[0])) == FALSE)
 	{
 		//registration failed. Call GetLastError for the cause of the error.
-		print_line(vformat("Error code: ", (int)GetLastError()));
+		print_line(vformat("Error code: %d", (int)GetLastError()));
 	}
+
+
+	/* MSG msg;
+	int i = 0;
+    while (GetMessage(&msg, NULL, 0, 0) > 0 && i < 100)
+    {
+		print_line(vformat("Message type: %d", (int)msg.message));
+        TranslateMessage(&msg);
+        DispatchMessage(&msg);
+		i += 1;
+    } */
+
+
 	return 0;
+}
+
+DeviceManager *DeviceManager::singleton = nullptr;
+
+DeviceManager* DeviceManager::get_singleton() {
+	return singleton;
 }
 
 godot::Array DeviceManager::get_device_list() {
@@ -189,7 +219,7 @@ godot::Array DeviceManager::get_device_list() {
 			continue;
 		}
 		RID_DEVICE_INFO deviceInfo = RID_DEVICE_INFO();
-		getDeviceInfo(pRawInputDeviceList, i, &deviceInfo);
+		getDeviceInfo(hDevice, &deviceInfo);
 		print_line(vformat("Current device usage page: %d", (int)deviceInfo.hid.usUsagePage));
 		print_line(vformat("Current device usage: %d", (int)deviceInfo.hid.usUsage));
 		// Skip non-digitizer non-touch pad devices
@@ -200,7 +230,7 @@ godot::Array DeviceManager::get_device_list() {
 		print_line("This is a trackpad!");
 
 		PHIDP_PREPARSED_DATA devicePreparsedData = PHIDP_PREPARSED_DATA();
-		getDevicePreparsedData(pRawInputDeviceList, i, devicePreparsedData);
+		getDevicePreparsedData(hDevice, devicePreparsedData);
 		HIDP_CAPS caps = HIDP_CAPS();
 		HidP_GetCaps(devicePreparsedData, &caps);
 		print_line(vformat("Trackpad NumberInputButtonCaps: %d", (int)caps.NumberInputButtonCaps));
@@ -209,9 +239,12 @@ godot::Array DeviceManager::get_device_list() {
 	return deviceList;
 }
 
+WNDPROC DeviceManager::getOrigWndProc() {
+	return DeviceManager::origWndProc;
+}
+
 
 LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
-	print_line("Messsage!");
 	switch(uMsg)
 	{
 		case WM_INPUT:
@@ -233,9 +266,26 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
 			RAWINPUT* raw = (RAWINPUT*)lpb;
 
 			//raw->header
+			
+			//std::string deviceName = getDeviceName(raw->header.hDevice);
+			//print_line(vformat("Device Name: " +  godot::String(deviceName.c_str())));
 
-			std::string deviceName = getDeviceName(raw->header.hDevice);
-			print_line(vformat("Device Name: " +  godot::String(deviceName.c_str())));
+			HANDLE hDevice = raw->header.hDevice;
+
+			RID_DEVICE_INFO deviceInfo = RID_DEVICE_INFO();
+			getDeviceInfo(hDevice, &deviceInfo);
+
+			bool isTrackpad = false;
+			if (deviceInfo.hid.usUsagePage == HID_USAGE_PAGE_DIGITIZER && deviceInfo.hid.usUsage == HID_USAGE_DIGITIZER_TOUCH_PAD) {
+				isTrackpad = true;
+			}
+			if (isTrackpad) {
+				PHIDP_PREPARSED_DATA devicePreparsedData = PHIDP_PREPARSED_DATA();
+				getDevicePreparsedData(hDevice, devicePreparsedData);
+				HIDP_CAPS caps = HIDP_CAPS();
+				HidP_GetCaps(devicePreparsedData, &caps);
+				print_line(vformat("Trackpad NumberInputButtonCaps: %d", (int)caps.NumberInputButtonCaps));
+			}
 
 			delete[] lpb;
 			return 0;
@@ -245,5 +295,6 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
 			DispatchMessage(&msg);
 		}	 */
 	}
-	return DefWindowProcW(hWnd, uMsg, wParam, lParam);
+	WNDPROC origWndProc = DeviceManager::get_singleton()->getOrigWndProc();
+	return CallWindowProcW(origWndProc, hWnd, uMsg, wParam, lParam);
 }

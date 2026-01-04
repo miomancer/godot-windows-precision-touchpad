@@ -16,16 +16,22 @@ using namespace godot;
 
 class DeviceManager : public godot::RefCounted {
 	GDCLASS(DeviceManager, godot::RefCounted)
+	static DeviceManager *singleton;
 
 protected:
 	static void _bind_methods();
 	HWND windowHandle;
+	WNDPROC origWndProc;
 
 public:
-	DeviceManager() = default;
-	~DeviceManager() override = default;
+	DeviceManager();
+	~DeviceManager() override;
+
+	static DeviceManager *get_singleton();
 
 	godot::Array get_device_list();
 	int register_touchpads();
-	int set_window(int window_handle);
+	int set_window(int64_t window_handle);
+
+	WNDPROC getOrigWndProc();
 };
