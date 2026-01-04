@@ -2,16 +2,14 @@
 
 //#include <windows.h>
 //#include <hidsdi.h>
-extern "C"
-{
-	#include <windows.h>
-    #include <hidsdi.h>
-}	
+
+#define MAX_LOADSTRING 100
 
 std::string wStringToString(const wchar_t* wstr, int size);
-std::string getDeviceName(PRAWINPUTDEVICELIST pRawInputDeviceList, int index);
+std::string getDeviceName(HANDLE hDevice);
 void getDeviceInfo(PRAWINPUTDEVICELIST pRawInputDeviceList, int index, RID_DEVICE_INFO* deviceInfo);
 void getDevicePreparsedData(PRAWINPUTDEVICELIST pRawInputDeviceList, int index, PHIDP_PREPARSED_DATA devicePreparsedData);
+LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
 
 void DeviceManager::_bind_methods() {
 	godot::ClassDB::bind_method(godot::D_METHOD("get_device_list"), &DeviceManager::get_device_list);
@@ -71,8 +69,7 @@ void getDeviceInfo(PRAWINPUTDEVICELIST pRawInputDeviceList, int index, RID_DEVIC
 	}
 }
 
-std::string getDeviceName(PRAWINPUTDEVICELIST pRawInputDeviceList, int index) {
-	HANDLE hDevice = pRawInputDeviceList[index].hDevice;
+std::string getDeviceName(HANDLE hDevice) {
 	UINT uiCommand = RIDI_DEVICENAME;
 	UINT pcbSize = 0;
 	int bytesRead = GetRawInputDeviceInfoW(hDevice, uiCommand, NULL, &pcbSize);
@@ -101,7 +98,32 @@ std::string getDeviceName(PRAWINPUTDEVICELIST pRawInputDeviceList, int index) {
 }
 
 int DeviceManager::set_window(int window_handle) {
-	DeviceManager::windowHandle = window_handle;
+	DeviceManager::windowHandle = (HWND)IntToPtr(window_handle);
+
+	if (RegisterTouchWindow(DeviceManager::windowHandle, TWF_FINETOUCH | TWF_WANTPALM) == 0) {
+		print_line(vformat("Touch window registration failed. Error code: %d", (int)GetLastError()));
+	}
+
+	HINSTANCE hInstance = GetModuleHandleW(NULL);
+
+	WNDCLASSEXW wcex;
+	wcex.cbSize         = sizeof(WNDCLASSEX);
+	wcex.style          = CS_HREDRAW | CS_VREDRAW;
+    wcex.lpfnWndProc    = WndProc;
+    wcex.cbClsExtra     = 0;
+    wcex.cbWndExtra     = 0;
+    wcex.hInstance      = hInstance;
+    wcex.hIcon          = NULL;
+    wcex.hCursor        = LoadCursor(nullptr, IDC_ARROW);
+    wcex.hbrBackground  = (HBRUSH)(COLOR_WINDOW+1);
+    wcex.lpszMenuName   = NULL;
+    wcex.lpszClassName  = L"godot cpp template (DEBUG)";
+    wcex.hIconSm        = NULL;
+
+	if (RegisterClassExW(&wcex) == 0) {
+		print_line(vformat("Class registration failed. Error code: %d", (int)GetLastError()));
+	}
+
 	return 0;
 }
 
@@ -113,8 +135,8 @@ int DeviceManager::register_touchpads() {
 
 	Rid[0].usUsagePage = HID_USAGE_PAGE_DIGITIZER;
 	Rid[0].usUsage = HID_USAGE_DIGITIZER_TOUCH_PAD;
-	Rid[0].dwFlags = 0;
-	Rid[0].hwndTarget = 0;
+	Rid[0].dwFlags = RIDEV_INPUTSINK;
+	Rid[0].hwndTarget = DeviceManager::windowHandle;
 
 	if (RegisterRawInputDevices(Rid, 1, sizeof(Rid[0])) == FALSE)
 	{
@@ -158,7 +180,8 @@ godot::Array DeviceManager::get_device_list() {
 	}
 	for (UINT i = 0; i < numDevices; i++)
 	{
-		std::string deviceName = getDeviceName(pRawInputDeviceList, i);
+		HANDLE hDevice = pRawInputDeviceList[i].hDevice;
+		std::string deviceName = getDeviceName(hDevice);
 		print_line("Current device name: " + godot::String(deviceName.c_str()));
 
 		// Skip non-HID devices (mice, keyboards)
@@ -186,3 +209,41 @@ godot::Array DeviceManager::get_device_list() {
 	return deviceList;
 }
 
+
+LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
+	print_line("Messsage!");
+	switch(uMsg)
+	{
+		case WM_INPUT:
+			print_line(vformat("Message recieved: %d", (int)uMsg));
+
+			HRAWINPUT hRawInput = (HRAWINPUT)lParam;
+
+			// retrieve and process data from hRawInput as needed...
+
+			UINT dwSize;
+
+			GetRawInputData(hRawInput, RID_INPUT, NULL, &dwSize, sizeof(RAWINPUTHEADER));
+			LPBYTE lpb = new BYTE[dwSize];
+
+			if (GetRawInputData(hRawInput, RID_INPUT, lpb, &dwSize, sizeof(RAWINPUTHEADER)) != dwSize) {
+				print_line("Wrong buffer size!");
+			}
+
+			RAWINPUT* raw = (RAWINPUT*)lpb;
+
+			//raw->header
+
+			std::string deviceName = getDeviceName(raw->header.hDevice);
+			print_line(vformat("Device Name: " +  godot::String(deviceName.c_str())));
+
+			delete[] lpb;
+			return 0;
+		/* else
+		{
+			TranslateMessage(&msg);
+			DispatchMessage(&msg);
+		}	 */
+	}
+	return DefWindowProcW(hWnd, uMsg, wParam, lParam);
+}

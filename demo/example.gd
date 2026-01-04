@@ -9,3 +9,4 @@ func _ready() -> void:
 	print("Window Handle: ", window_handle)
 	device_manager.set_window(window_handle)
 	print(device_manager.register_touchpads())
+	

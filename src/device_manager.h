@@ -4,6 +4,12 @@
 #include "godot_cpp/classes/wrapped.hpp"
 #include "godot_cpp/variant/variant.hpp"
 
+extern "C"
+{
+	#include <windows.h>
+    #include <hidsdi.h>
+}	
+
 #pragma comment(lib, "User32.lib")
 
 using namespace godot;
@@ -13,7 +19,7 @@ class DeviceManager : public godot::RefCounted {
 
 protected:
 	static void _bind_methods();
-	int windowHandle = -1;
+	HWND windowHandle;
 
 public:
 	DeviceManager() = default;
