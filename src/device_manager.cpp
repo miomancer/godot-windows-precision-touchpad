@@ -261,21 +261,17 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
 				isTrackpad = true;
 			}
 			if (isTrackpad) {
-
-
 				//DWORD rawDataSize = raw->header.dwSize;
 				//LPBYTE lpb = new BYTE[rawDataSize];
 				//RAWINPUT* raw = (RAWINPUT*)lpb;
 
-				
 				print_line(vformat("Input size: %d", (int)raw->data.hid.dwSizeHid));
 				print_line(vformat("Input count: %d", (int)raw->data.hid.dwCount));
 
-
 				UINT pcbSize = 0;
 				int bytesRead = GetRawInputDeviceInfoW(hDevice, RIDI_PREPARSEDDATA, NULL, &pcbSize);
-				LPBYTE dataBuffer = new BYTE[pcbSize];
-				PHIDP_PREPARSED_DATA devicePreparsedData = (PHIDP_PREPARSED_DATA)dataBuffer;
+				LPBYTE preparsedDataBuffer = new BYTE[pcbSize];
+				PHIDP_PREPARSED_DATA devicePreparsedData = (PHIDP_PREPARSED_DATA)preparsedDataBuffer;
 				getDevicePreparsedData(hDevice, devicePreparsedData, pcbSize);
 				
 				HIDP_CAPS caps = HIDP_CAPS();
@@ -289,17 +285,147 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
 				USHORT numValueCaps = caps.NumberInputValueCaps;
 
 
-
+				// Get Button Caps
 				LPBYTE buttonCapsBuffer = new BYTE[numButtonCaps * sizeof(HIDP_BUTTON_CAPS)];
 				PHIDP_BUTTON_CAPS buttonCaps = (PHIDP_BUTTON_CAPS)buttonCapsBuffer;
 				
-				if (HidP_GetButtonCaps(HidP_Input, buttonCaps, &numButtonCaps, devicePreparsedData) != HIDP_STATUS_SUCCESS) {
-					print_line(vformat("ERROR: Get button caps failed. Error code: %d", (int)GetLastError()));
+				unsigned long getButtonResult = HidP_GetButtonCaps(HidP_Input, buttonCaps, &numButtonCaps, devicePreparsedData);
+				if (getButtonResult != HIDP_STATUS_SUCCESS) {
+					print_line(vformat("ERROR: Get button caps failed. Error code: %d", (unsigned int)getButtonResult));
 				}
 
-
+				// Get Value Caps
+				LPBYTE valueCapsBuffer = new BYTE[numValueCaps * sizeof(HIDP_VALUE_CAPS)];
+				PHIDP_VALUE_CAPS valueCaps = (PHIDP_VALUE_CAPS)valueCapsBuffer;
 				
+				unsigned long getValueResult = HidP_GetValueCaps(HidP_Input, valueCaps, &numValueCaps, devicePreparsedData);
+				if (getValueResult != HIDP_STATUS_SUCCESS) {
+					print_line(vformat("ERROR: Get button caps failed. Error code: %d", (unsigned int)getValueResult));
+				}
+				
+				// Get range of indices returned by HIDClass driver for buttons
+				ULONG buttonUsageRange = buttonCaps->Range.UsageMax - buttonCaps->Range.UsageMin + 1;
 
+				// Get usages
+				LPBYTE usageBuffer = new BYTE[(int)(buttonUsageRange)];
+				PUSAGE usage = (PUSAGE)usageBuffer;
+				
+				LPBYTE reportBuffer = new BYTE[(int)(raw->header.dwSize * raw->data.hid.dwCount)]{0};
+				PCHAR report = (PCHAR)reportBuffer;
+				UCHAR reportID = report[0];
+
+				bool reportIDMatches = false;
+				print_line(vformat("Report ID: %d", (unsigned int)buttonCaps->ReportID));
+				if (reportID == buttonCaps->ReportID) {
+					reportIDMatches = true;
+					print_line(vformat("Report ID Match: %d", (unsigned int)buttonCaps->ReportID));
+				}
+				if (true) {
+						unsigned long usageResult = HidP_GetUsages(
+						HidP_Input,
+						deviceInfo.hid.usUsagePage,
+						0,
+						usage,
+						&buttonUsageRange,
+						devicePreparsedData,
+						report,
+						raw->data.hid.dwSizeHid * raw->data.hid.dwCount
+					);
+					switch (usageResult)
+					{
+					case HIDP_STATUS_INVALID_REPORT_LENGTH:
+						print_line("The report length is not valid.");
+						break;
+					case HIDP_STATUS_INVALID_REPORT_TYPE:
+						print_line("The specified report type is not valid.");
+						break;
+					case HIDP_STATUS_BUFFER_TOO_SMALL:
+						print_line("The UsageList buffer is too small to hold all the usages that are currently set to ON on the specified usage page.");
+						break;
+					case HIDP_STATUS_INCOMPATIBLE_REPORT_ID:
+						print_line("The collection contains buttons on the specified usage page in a report of the specified type, but there are no such usages in the specified report.");
+						break;
+					case HIDP_STATUS_INVALID_PREPARSED_DATA:
+						print_line("The preparsed data is not valid.");
+						break;
+					case HIDP_STATUS_USAGE_NOT_FOUND:
+						print_line("The collection does not contain any buttons on the specified usage page in any report of the specified report type.");
+						break;
+					default:
+						break;
+					}
+
+					ULONG value = 0;
+					for(int i = 0; i < caps.NumberInputValueCaps; i++)
+					{
+						value = 0;
+						unsigned long usageValueResult = HidP_GetUsageValue(
+							HidP_Input,
+							deviceInfo.hid.usUsagePage,
+							0,
+							valueCaps[i].Range.UsageMin,
+							&value,
+							devicePreparsedData,
+							report,
+							raw->data.hid.dwSizeHid * raw->data.hid.dwCount
+						);
+						switch (usageValueResult)
+						{
+						case HIDP_STATUS_INVALID_REPORT_LENGTH:
+							print_line("ERROR: Could not get usage value.");
+							print_line("The report length is not valid.");
+							break;
+						case HIDP_STATUS_INVALID_REPORT_TYPE:
+							print_line("ERROR: Could not get usage value.");
+							print_line("The specified report type is not valid.");
+							break;
+						case HIDP_STATUS_INCOMPATIBLE_REPORT_ID:
+							print_line("ERROR: Could not get usage value.");
+							print_line("The collection contains buttons on the specified usage page in a report of the specified type, but there are no such usages in the specified report.");
+							break;
+						case HIDP_STATUS_INVALID_PREPARSED_DATA:
+							print_line("ERROR: Could not get usage value.");
+							print_line("The preparsed data is not valid.");
+							break;
+						case HIDP_STATUS_USAGE_NOT_FOUND:
+							print_line("ERROR: Could not get usage value.");
+							print_line("The collection does not contain any buttons on the specified usage page in any report of the specified report type.");
+							break;
+						default:
+							print_line("Successfully obtained usage value.");
+							break;
+						}
+
+						if (usageValueResult == HIDP_STATUS_SUCCESS) {
+							print_line(vformat("Usage value: %d", (unsigned int)value));
+						}
+						
+						/* switch(valueCaps[i].Range.UsageMin)
+						{
+						case 0x30:    // X-axis
+							lAxisX = (LONG)value - 128;
+							break;
+
+						case 0x31:    // Y-axis
+							lAxisY = (LONG)value - 128;
+							break;
+
+						case 0x32: // Z-axis
+							lAxisZ = (LONG)value - 128;
+							break;
+
+						case 0x35: // Rotate-Z
+							lAxisRz = (LONG)value - 128;
+							break;
+
+						case 0x39:    // Hat Switch
+							lHat = value;
+							break;
+						} */
+					}
+
+
+				}
 
 				/* LPBYTE reportBuffer = new BYTE[caps.InputReportByteLength]{};
 				//reportBuffer[0] = (BYTE)HID_USAGE_DIGITIZER_TOUCH_PAD;
@@ -310,16 +436,18 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
 					print_line(vformat("HidD_GetInputReport() failed. Error code: %d", (int)GetLastError()));
 				}
 
-
-
 				delete[] reportBuffer; */
 
+
+				delete[] usageBuffer;
+				delete[] reportBuffer;
+				delete[] valueCapsBuffer;
 				delete[] buttonCapsBuffer;
-				delete[] dataBuffer;
+				delete[] preparsedDataBuffer;
 			}
 
 			delete[] lpb;
-			return 0;
+			break;
 		/* else
 		{
 			TranslateMessage(&msg);
