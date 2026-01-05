@@ -107,14 +107,16 @@ std::string getDeviceName(HANDLE hDevice) {
 
 int DeviceManager::set_window(int64_t window_handle) {
 	DeviceManager::windowHandle = (HWND)IntToPtr(window_handle);
+
+	DeviceManager::origWndProc = (WNDPROC)GetWindowLongPtrW(DeviceManager::windowHandle, GWLP_WNDPROC);
+
+	SetWindowLongPtrW(DeviceManager::windowHandle, GWLP_WNDPROC, (LONG_PTR)*WndProc);
+	
 	if (RegisterTouchWindow(DeviceManager::windowHandle, TWF_FINETOUCH | TWF_WANTPALM) == 0) {
 		print_line(vformat("ERROR: Touch window registration failed. Error code: %d", (int)GetLastError()));
 	}
 
-	origWndProc = (WNDPROC)GetWindowLongPtrW(DeviceManager::windowHandle, GWLP_WNDPROC);
-
-	SetWindowLongPtrW(DeviceManager::windowHandle, GWLP_WNDPROC, (LONG_PTR)*WndProc);
-	
+	print_line(vformat("Max touches: %d", GetSystemMetrics(SM_MAXIMUMTOUCHES)));
 
 	return 0;
 }
@@ -226,9 +228,17 @@ WNDPROC DeviceManager::getOrigWndProc() {
 
 
 LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
+	//print_line(vformat("Message type: %d", (int)uMsg));
 	switch(uMsg)
 	{
+		case WM_TOUCH:
+		{
+			print_line("Touched.");
+			CloseTouchInputHandle((HTOUCHINPUT)lParam);
+		}
 		case WM_INPUT:
+		{
+			break;
 			//print_line(vformat("Message recieved: %d", (int)uMsg));
 
 			HRAWINPUT hRawInput = (HRAWINPUT)lParam;
@@ -398,30 +408,68 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
 
 						if (usageValueResult == HIDP_STATUS_SUCCESS) {
 							print_line(vformat("Usage value: %d", (unsigned int)value));
+							print_line(vformat("Usage: %d", (unsigned int)valueCaps[i].Range.UsageMin));
 						}
-						
-						/* switch(valueCaps[i].Range.UsageMin)
+
+
+
+						USHORT usageValueByteLength= valueCaps->BitSize * valueCaps->ReportCount;
+						usageValueByteLength = (int)(valueCaps->BitSize);
+						print_line(vformat("Bit size: %d", (unsigned int)usageValueByteLength));
+						print_line(vformat("Usage value byte length: %d", (unsigned int)usageValueByteLength));
+
+						LPBYTE usageValueArrayBuffer = new BYTE[(int)(usageValueByteLength)]{0};
+						PCHAR usageValueArray = (PCHAR)usageValueArrayBuffer;
+
+						unsigned long usageValueArrayResult = HidP_GetUsageValueArray(
+							HidP_Input,
+							deviceInfo.hid.usUsagePage,
+							0,
+							valueCaps[i].Range.UsageMin,
+							usageValueArray,
+							usageValueByteLength,
+							devicePreparsedData,
+							report,
+							raw->data.hid.dwSizeHid * raw->data.hid.dwCount
+						);
+
+						switch (usageValueArrayResult)
 						{
-						case 0x30:    // X-axis
-							lAxisX = (LONG)value - 128;
+						case HIDP_STATUS_INVALID_REPORT_LENGTH:
+							print_line("ERROR: Could not get usage value array.");
+							print_line("The report length is not valid.");
 							break;
+						case HIDP_STATUS_INVALID_REPORT_TYPE:
+							print_line("ERROR: Could not get usage value array.");
+							print_line("The specified report type is not valid.");
+							break;
+						case HIDP_STATUS_NOT_VALUE_ARRAY:
+							print_line("ERROR: Could not get usage value array.");
+							print_line("The requested usage is not a usage value array.");
+							break;
+						case HIDP_STATUS_BUFFER_TOO_SMALL:
+							print_line("ERROR: Could not get usage value array.");
+							print_line("The UsageValue buffer is too small to hold the requested usage.");
+							break;
+						case HIDP_STATUS_INCOMPATIBLE_REPORT_ID:
+							print_line("ERROR: Could not get usage value array.");
+							print_line("The collection contains buttons on the specified usage page in a report of the specified type, but there are no such usages in the specified report.");
+							break;
+						case HIDP_STATUS_INVALID_PREPARSED_DATA:
+							print_line("ERROR: Could not get usage value array.");
+							print_line("The preparsed data is not valid.");
+							break;
+						case HIDP_STATUS_USAGE_NOT_FOUND:
+							print_line("ERROR: Could not get usage value array.");
+							print_line("The collection does not contain any buttons on the specified usage page in any report of the specified report type.");
+							break;
+						default:
+							print_line("Successfully obtained usage value array.");
+							break;
+						}
 
-						case 0x31:    // Y-axis
-							lAxisY = (LONG)value - 128;
-							break;
+						delete[] usageValueArrayBuffer;
 
-						case 0x32: // Z-axis
-							lAxisZ = (LONG)value - 128;
-							break;
-
-						case 0x35: // Rotate-Z
-							lAxisRz = (LONG)value - 128;
-							break;
-
-						case 0x39:    // Hat Switch
-							lHat = value;
-							break;
-						} */
 					}
 
 
@@ -453,7 +501,9 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
 			TranslateMessage(&msg);
 			DispatchMessage(&msg);
 		}	 */
+		}
 	}
 	WNDPROC origWndProc = DeviceManager::get_singleton()->getOrigWndProc();
+	//DefWindowProcW(hWnd, uMsg, wParam, lParam);
 	return CallWindowProcW(origWndProc, hWnd, uMsg, wParam, lParam);
 }
