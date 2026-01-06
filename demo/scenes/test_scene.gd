@@ -1,6 +1,7 @@
-extends Node
+extends Node2D
 
 var device_manager : DeviceManager
+@onready var sprites = $Sprites
 
 
 func _ready() -> void:
@@ -10,15 +11,15 @@ func _ready() -> void:
 	setup_tp()
 
 func _process(delta):
-	if Input.is_action_just_pressed("ui_accept"):
-		print("ACCEPT")
-	if Input.is_action_just_pressed("ui_cancel"):
-		print("CANCEL")
 	print([device_manager.get_touch_position(0),
 	device_manager.get_touch_position(1),
 	device_manager.get_touch_position(2),
 	device_manager.get_touch_position(3),
 	device_manager.get_touch_position(4)])
+	
+	for i in range(sprites.get_child_count()):
+		var sprite = sprites.get_child(i)
+		sprite.position = device_manager.get_touch_position(i)
 
 func setup_tp():
 	var window_id = 0 # Default ID for the main window

@@ -22,6 +22,7 @@ protected:
 	static void _bind_methods();
 	HWND windowHandle;
 	WNDPROC origWndProc;
+	godot::Array touch_positions;
 
 public:
 	DeviceManager();
@@ -34,4 +35,6 @@ public:
 	int set_window(int64_t window_handle);
 
 	WNDPROC getOrigWndProc();
+	godot::Vector2 get_touch_position(int index);
+	void set_touch_position(int index, int x, int y);
 };

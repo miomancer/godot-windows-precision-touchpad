@@ -15,6 +15,13 @@
 				Returns a list of connected devices.
 			</description>
 		</method>
+		<method name="get_touch_position">
+			<param index="0" name="index" type="int" />
+			<return type="Vector2" />
+			<description>
+				Returns a touch position at a specified index.
+			</description>
+		</method>
 		<method name="set_window">
 			<param index="0" name="window_handle" type="int" />
 			<return type="int" />

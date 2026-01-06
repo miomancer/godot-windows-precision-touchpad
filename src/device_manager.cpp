@@ -11,12 +11,17 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
 
 void DeviceManager::_bind_methods() {
 	godot::ClassDB::bind_method(godot::D_METHOD("get_device_list"), &DeviceManager::get_device_list);
+	godot::ClassDB::bind_method(godot::D_METHOD("get_touch_position", "index"), &DeviceManager::get_touch_position);
 	godot::ClassDB::bind_method(godot::D_METHOD("set_window", "window_handle"), &DeviceManager::set_window);
 	godot::ClassDB::bind_method(godot::D_METHOD("register_touchpads"), &DeviceManager::register_touchpads);
 }
 
 DeviceManager::DeviceManager() {
 	singleton = this;
+	this->touch_positions.resize(5);
+	for (int i = 0; i < 5; i++) {
+		this->touch_positions[i] = godot::Vector2(-1, -1);
+	}
 }
 DeviceManager::~DeviceManager() {
 	singleton = nullptr;
@@ -226,6 +231,15 @@ WNDPROC DeviceManager::getOrigWndProc() {
 	return DeviceManager::origWndProc;
 }
 
+godot::Vector2 DeviceManager::get_touch_position(int index) {
+	return this->touch_positions[index];
+}
+
+
+void DeviceManager::set_touch_position(int index, int x, int y) {
+	DeviceManager::touch_positions[index] = godot::Vector2(x, y);
+}
+
 
 LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
 	//print_line(vformat("Message type: %d", (int)uMsg));
@@ -362,39 +376,60 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
 					break;
 				}
 
-				ULONG positionValue = 0;
-				unsigned long positionUsageValueResult = HidP_GetUsageValue(
+
+
+				
+				ULONG contactCountValue = 0;
+				unsigned long contactCountUsageValueResult = HidP_GetUsageValue(
 					HidP_Input,
-					HID_USAGE_PAGE_GENERIC,
+					HID_USAGE_PAGE_DIGITIZER,
 					0,
-					HID_USAGE_GENERIC_X,
-					&positionValue,
+					HID_USAGE_DIGITIZER_CONTACT_COUNT,
+					&contactCountValue,
 					devicePreparsedData,
 					(PCHAR)raw->data.hid.bRawData,
 					raw->data.hid.dwSizeHid
 				);
 
-				if (positionUsageValueResult == HIDP_STATUS_SUCCESS) {
-					print_line(vformat("X Usage, Usage value: %d", (unsigned int)positionValue));
+				for (int i = 0; i < contactCountValue; i++) {
+					ULONG xValue = 0;
+					unsigned long positionUsageValueResult = HidP_GetUsageValue(
+						HidP_Input,
+						HID_USAGE_PAGE_GENERIC,
+						i + 1,
+						HID_USAGE_GENERIC_X,
+						&xValue,
+						devicePreparsedData,
+						(PCHAR)raw->data.hid.bRawData,
+						raw->data.hid.dwSizeHid
+					);
+
+					/* if (positionUsageValueResult == HIDP_STATUS_SUCCESS) {
+						print_line(vformat("X Usage, Usage value: %d", (unsigned int)xValue));
+					} */
+
+					ULONG yValue = 0;
+					positionUsageValueResult = HidP_GetUsageValue(
+						HidP_Input,
+						HID_USAGE_PAGE_GENERIC,
+						i + 1,
+						HID_USAGE_GENERIC_Y,
+						&yValue,
+						devicePreparsedData,
+						(PCHAR)raw->data.hid.bRawData,
+						raw->data.hid.dwSizeHid
+					);
+
+					/* if (positionUsageValueResult == HIDP_STATUS_SUCCESS) {
+						print_line(vformat("Y Usage, Usage value: %d", (unsigned int)yValue));
+					} */
+
+					DeviceManager::get_singleton()->set_touch_position(i, xValue, yValue);
 				}
 
-				positionValue = 0;
-				positionUsageValueResult = HidP_GetUsageValue(
-					HidP_Input,
-					HID_USAGE_PAGE_GENERIC,
-					0,
-					HID_USAGE_GENERIC_Y,
-					&positionValue,
-					devicePreparsedData,
-					(PCHAR)raw->data.hid.bRawData,
-					raw->data.hid.dwSizeHid
-				);
 
-				if (positionUsageValueResult == HIDP_STATUS_SUCCESS) {
-					print_line(vformat("Y Usage, Usage value: %d", (unsigned int)positionValue));
-				}
 
-				DeviceManager::get_singleton()->call("print", "INPUT DETECTED");
+				//DeviceManager::get_singleton()->call("print", "INPUT DETECTED");
 
 				/* USHORT xUsageValueByteLength= valueCaps->BitSize * valueCaps->ReportCount;
 				xUsageValueByteLength = (int)(valueCaps->BitSize);
