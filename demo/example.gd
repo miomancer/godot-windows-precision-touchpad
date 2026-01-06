@@ -6,6 +6,7 @@ var device_manager : DeviceManager
 func _ready() -> void:
 	#Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 	device_manager = DeviceManager.new()
+	#Engine.register_singleton(device_manager)
 	setup_tp()
 
 func _process(delta):
