@@ -217,6 +217,37 @@ godot::Array DeviceManager::get_device_list() {
 		// If you've made it this far, you're a trackpad
 		print_line("This is a trackpad!");
 
+		UINT pcbSize = 0;
+		int bytesRead = GetRawInputDeviceInfoW(hDevice, RIDI_PREPARSEDDATA, NULL, &pcbSize);
+		LPBYTE preparsedDataBuffer = new BYTE[pcbSize];
+		PHIDP_PREPARSED_DATA devicePreparsedData = (PHIDP_PREPARSED_DATA)preparsedDataBuffer;
+		getDevicePreparsedData(hDevice, devicePreparsedData, pcbSize);
+
+		HIDP_CAPS caps = HIDP_CAPS();
+		if (HidP_GetCaps(devicePreparsedData, &caps) != HIDP_STATUS_SUCCESS) {
+			print_line("The specified preparsed data is invalid. ");
+		}
+		
+		/* ULONG tipSwitchValue = 0;
+		unsigned long tipSwitchUsageValueResult = HidP_GetUsageValue(
+			HidP_Input,
+			HID_USAGE_PAGE_DIGITIZER,
+			i,
+			HID_USAGE_DIGITIZER_TIP_SWITCH,
+			&tipSwitchValue,
+			devicePreparsedData,
+			cap,
+			caps.FeatureReportByteLength
+		);
+
+		if (tipSwitchUsageValueResult == HIDP_STATUS_SUCCESS) {
+			print_line(vformat("Tip Switch: %d", (unsigned int)tipSwitchValue));
+		} else {
+			print_line("Could not get Tip Switch.");
+		}data.hid.dwSizeHid
+
+		delete[] preparsedDataBuffer; */
+
 		/* PHIDP_PREPARSED_DATA devicePreparsedData = PHIDP_PREPARSED_DATA();
 		getDevicePreparsedData(hDevice, devicePreparsedData);
 		HIDP_CAPS caps = HIDP_CAPS();
@@ -256,13 +287,13 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
 			UINT dwSize;
 
 			GetRawInputData(hRawInput, RID_INPUT, NULL, &dwSize, sizeof(RAWINPUTHEADER));
-			LPBYTE lpb = new BYTE[dwSize];
+			LPBYTE rawReportBuffer = new BYTE[dwSize];
 
-			if (GetRawInputData(hRawInput, RID_INPUT, lpb, &dwSize, sizeof(RAWINPUTHEADER)) != dwSize) {
+			if (GetRawInputData(hRawInput, RID_INPUT, rawReportBuffer, &dwSize, sizeof(RAWINPUTHEADER)) != dwSize) {
 				print_line("Incorrect buffer size.");
 			}
 
-			RAWINPUT* raw = (RAWINPUT*)lpb;
+			RAWINPUT* raw = (RAWINPUT*)rawReportBuffer;
 
 			//raw->header
 			
@@ -328,9 +359,9 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
 
 				// Get usages
 				LPBYTE usageBuffer = new BYTE[(int)(buttonUsageRange)];
-				PUSAGE usage = (PUSAGE)usageBuffer;
+				PUSAGE usageList = (PUSAGE)usageBuffer;
 				
-				LPBYTE reportBuffer = new BYTE[(int)(raw->header.dwSize * raw->data.hid.dwCount)]{0};
+				LPBYTE reportBuffer = new BYTE[(int)(raw->header.dwSize)]{0};
 				PCHAR report = (PCHAR)reportBuffer;
 				UCHAR reportID = report[0];
 
@@ -340,44 +371,6 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
 					reportIDMatches = true;
 					//print_line(vformat("Report ID Match: %d", (unsigned int)buttonCaps->ReportID));
 				}
-
-
-				unsigned long usageResult = HidP_GetUsages(
-				HidP_Input,
-				deviceInfo.hid.usUsagePage,
-				0,
-				usage,
-				&buttonUsageRange,
-				devicePreparsedData,
-				report,
-				raw->data.hid.dwSizeHid * raw->data.hid.dwCount
-				);
-				switch (usageResult)
-				{
-				case HIDP_STATUS_INVALID_REPORT_LENGTH:
-					print_line("The report length is not valid.");
-					break;
-				case HIDP_STATUS_INVALID_REPORT_TYPE:
-					print_line("The specified report type is not valid.");
-					break;
-				case HIDP_STATUS_BUFFER_TOO_SMALL:
-					print_line("The UsageList buffer is too small to hold all the usages that are currently set to ON on the specified usage page.");
-					break;
-				case HIDP_STATUS_INCOMPATIBLE_REPORT_ID:
-					print_line("The collection contains buttons on the specified usage page in a report of the specified type, but there are no such usages in the specified report.");
-					break;
-				case HIDP_STATUS_INVALID_PREPARSED_DATA:
-					print_line("The preparsed data is not valid.");
-					break;
-				case HIDP_STATUS_USAGE_NOT_FOUND:
-					print_line("The collection does not contain any buttons on the specified usage page in any report of the specified report type.");
-					break;
-				default:
-					break;
-				}
-
-
-
 				
 				ULONG contactCountValue = 0;
 				unsigned long contactCountUsageValueResult = HidP_GetUsageValue(
@@ -390,41 +383,96 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
 					(PCHAR)raw->data.hid.bRawData,
 					raw->data.hid.dwSizeHid
 				);
+				
 
-				for (int i = 0; i < contactCountValue; i++) {
-					ULONG xValue = 0;
-					unsigned long positionUsageValueResult = HidP_GetUsageValue(
-						HidP_Input,
-						HID_USAGE_PAGE_GENERIC,
-						i + 1,
-						HID_USAGE_GENERIC_X,
-						&xValue,
-						devicePreparsedData,
-						(PCHAR)raw->data.hid.bRawData,
-						raw->data.hid.dwSizeHid
+
+
+				//print_line(vformat("Contact Count: %d", (unsigned int)contactCountValue));
+
+				for (int i = 0; i < 5; i++) {
+					unsigned long usageResult = HidP_GetUsages(
+					HidP_Input,
+					deviceInfo.hid.usUsagePage,
+					i + 1,
+					usageList,
+					&buttonUsageRange,
+					devicePreparsedData,
+					(PCHAR)raw->data.hid.bRawData,
+					raw->data.hid.dwSizeHid
 					);
-
-					/* if (positionUsageValueResult == HIDP_STATUS_SUCCESS) {
-						print_line(vformat("X Usage, Usage value: %d", (unsigned int)xValue));
+					switch (usageResult)
+					{
+					case HIDP_STATUS_INVALID_REPORT_LENGTH:
+						print_line("The report length is not valid.");
+						break;
+					case HIDP_STATUS_INVALID_REPORT_TYPE:
+						print_line("The specified report type is not valid.");
+						break;
+					case HIDP_STATUS_BUFFER_TOO_SMALL:
+						print_line("The UsageList buffer is too small to hold all the usages that are currently set to ON on the specified usage page.");
+						break;
+					case HIDP_STATUS_INCOMPATIBLE_REPORT_ID:
+						print_line("The collection contains buttons on the specified usage page in a report of the specified type, but there are no such usages in the specified report.");
+						break;
+					case HIDP_STATUS_INVALID_PREPARSED_DATA:
+						print_line("The preparsed data is not valid.");
+						break;
+					case HIDP_STATUS_USAGE_NOT_FOUND:
+						print_line("The collection does not contain any buttons on the specified usage page in any report of the specified report type.");
+						break;
+					default:
+						break;
+					}
+					/* print_line(vformat("Button Usage Range: %d", (unsigned int)buttonUsageRange));
+					for (int i = 0; i < buttonUsageRange; i++) {
+						print_line(vformat("ON Button usage: %d", (unsigned int)usageList[i]));
+						//print_line(vformat("Button usage: %d", (unsigned int)buttonCaps[i].NotRange.Usage));
 					} */
+					if (buttonUsageRange < 1) {
+						DeviceManager::get_singleton()->set_touch_position(i, -1, -1);
+						break;
+					}
 
-					ULONG yValue = 0;
-					positionUsageValueResult = HidP_GetUsageValue(
-						HidP_Input,
-						HID_USAGE_PAGE_GENERIC,
-						i + 1,
-						HID_USAGE_GENERIC_Y,
-						&yValue,
-						devicePreparsedData,
-						(PCHAR)raw->data.hid.bRawData,
-						raw->data.hid.dwSizeHid
-					);
 
-					/* if (positionUsageValueResult == HIDP_STATUS_SUCCESS) {
-						print_line(vformat("Y Usage, Usage value: %d", (unsigned int)yValue));
+
+					if (i < contactCountValue) {
+						ULONG xValue = 0;
+						unsigned long positionUsageValueResult = HidP_GetUsageValue(
+							HidP_Input,
+							HID_USAGE_PAGE_GENERIC,
+							i + 1,
+							HID_USAGE_GENERIC_X,
+							&xValue,
+							devicePreparsedData,
+							(PCHAR)raw->data.hid.bRawData,
+							raw->data.hid.dwSizeHid
+						);
+
+						/* if (positionUsageValueResult == HIDP_STATUS_SUCCESS) {
+							print_line(vformat("X Usage, Usage value: %d", (unsigned int)xValue));
+						} */
+
+						ULONG yValue = 0;
+						positionUsageValueResult = HidP_GetUsageValue(
+							HidP_Input,
+							HID_USAGE_PAGE_GENERIC,
+							i + 1,
+							HID_USAGE_GENERIC_Y,
+							&yValue,
+							devicePreparsedData,
+							(PCHAR)raw->data.hid.bRawData,
+							raw->data.hid.dwSizeHid
+						);
+
+
+						DeviceManager::get_singleton()->set_touch_position(i, (int)xValue, (int)yValue);
+
+						/* if (positionUsageValueResult == HIDP_STATUS_SUCCESS) {
+							print_line(vformat("Y Usage, Usage value: %d", (unsigned int)yValue));
+						} */
+					} /* else {
+						DeviceManager::get_singleton()->set_touch_position(i, -1, -1);
 					} */
-
-					DeviceManager::get_singleton()->set_touch_position(i, xValue, yValue);
 				}
 
 
@@ -595,7 +643,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
 				delete[] preparsedDataBuffer;
 			}
 
-			delete[] lpb;
+			delete[] rawReportBuffer;
 			break;
 		/* else
 		{

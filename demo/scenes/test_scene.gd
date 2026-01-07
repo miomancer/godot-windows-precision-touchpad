@@ -25,4 +25,4 @@ func setup_tp():
 	var window_id = 0 # Default ID for the main window
 	var window_handle = DisplayServer.window_get_native_handle(DisplayServer.WINDOW_HANDLE, window_id)
 	device_manager.set_window(window_handle)
-	device_manager.register_touchpads()
+	device_manager.register_touchpads()	
