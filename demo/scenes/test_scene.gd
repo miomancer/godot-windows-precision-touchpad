@@ -19,7 +19,7 @@ func _process(delta):
 	
 	for i in range(sprites.get_child_count()):
 		var sprite = sprites.get_child(i)
-		sprite.position = device_manager.get_touch_position(i)
+		sprite.position = device_manager.get_touch_position(i) / Vector2(1404.0, 864.0) * get_viewport_rect().size
 
 func setup_tp():
 	var window_id = 0 # Default ID for the main window

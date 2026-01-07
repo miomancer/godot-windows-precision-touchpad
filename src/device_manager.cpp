@@ -354,12 +354,6 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
 
 				//print_line(vformat("Value Caps ReportCount: %d", (unsigned int)valueCaps->ReportCount));
 				
-				// Get range of indices returned by HIDClass driver for buttons
-				ULONG buttonUsageRange = buttonCaps->Range.UsageMax - buttonCaps->Range.UsageMin + 1;
-
-				// Get usages
-				LPBYTE usageBuffer = new BYTE[(int)(buttonUsageRange)];
-				PUSAGE usageList = (PUSAGE)usageBuffer;
 				
 				LPBYTE reportBuffer = new BYTE[(int)(raw->header.dwSize)]{0};
 				PCHAR report = (PCHAR)reportBuffer;
@@ -390,6 +384,16 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
 				//print_line(vformat("Contact Count: %d", (unsigned int)contactCountValue));
 
 				for (int i = 0; i < 5; i++) {
+
+					// Get range of indices returned by HIDClass driver for buttons
+					ULONG buttonUsageRange = numButtonCaps;
+
+					// Get usages
+					LPBYTE usageBuffer = new BYTE[(int)(buttonUsageRange)];
+					PUSAGE usageList = (PUSAGE)usageBuffer;
+
+
+
 					unsigned long usageResult = HidP_GetUsages(
 					HidP_Input,
 					deviceInfo.hid.usUsagePage,
@@ -423,14 +427,24 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
 					default:
 						break;
 					}
-					/* print_line(vformat("Button Usage Range: %d", (unsigned int)buttonUsageRange));
+
+					/* if (i == 0) {
+						print_line(vformat("Button Usage Range: %d", (unsigned int)buttonUsageRange));
+					}
+					print_line(vformat("Button Usage Range: %d", (unsigned int)buttonUsageRange)); */
+					bool hasTipSwitch = false;
 					for (int i = 0; i < buttonUsageRange; i++) {
-						print_line(vformat("ON Button usage: %d", (unsigned int)usageList[i]));
+						//print_line(vformat("ON Button usage: %d", (unsigned int)usageList[i]));
+						if (usageList[i] == HID_USAGE_DIGITIZER_TIP_SWITCH) {
+							hasTipSwitch = true;
+							break;
+						}
 						//print_line(vformat("Button usage: %d", (unsigned int)buttonCaps[i].NotRange.Usage));
-					} */
-					if (buttonUsageRange < 1) {
+					}
+					if (!hasTipSwitch) {
 						DeviceManager::get_singleton()->set_touch_position(i, -1, -1);
-						break;
+						delete[] usageBuffer;
+						continue;
 					}
 
 
@@ -473,6 +487,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
 					} /* else {
 						DeviceManager::get_singleton()->set_touch_position(i, -1, -1);
 					} */
+					delete[] usageBuffer;
 				}
 
 
@@ -636,7 +651,6 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
 				delete[] reportBuffer; */
 
 
-				delete[] usageBuffer;
 				delete[] reportBuffer;
 				delete[] valueCapsBuffer;
 				delete[] buttonCapsBuffer;
