@@ -354,18 +354,6 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
 
 				//print_line(vformat("Value Caps ReportCount: %d", (unsigned int)valueCaps->ReportCount));
 				
-				
-				LPBYTE reportBuffer = new BYTE[(int)(raw->header.dwSize)]{0};
-				PCHAR report = (PCHAR)reportBuffer;
-				UCHAR reportID = report[0];
-
-				bool reportIDMatches = false;
-				//print_line(vformat("Report ID: %d", (unsigned int)buttonCaps->ReportID));
-				if (reportID == buttonCaps->ReportID) {
-					reportIDMatches = true;
-					//print_line(vformat("Report ID Match: %d", (unsigned int)buttonCaps->ReportID));
-				}
-				
 				ULONG contactCountValue = 0;
 				unsigned long contactCountUsageValueResult = HidP_GetUsageValue(
 					HidP_Input,
@@ -377,29 +365,41 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
 					(PCHAR)raw->data.hid.bRawData,
 					raw->data.hid.dwSizeHid
 				);
-				
-
 
 
 				//print_line(vformat("Contact Count: %d", (unsigned int)contactCountValue));
 
-				for (int i = 0; i < 5; i++) {
+				for (int i = 0; i < std::min((int)contactCountValue, 5); i++) {
+					ULONG contactIdentifierValue = 0;
+					unsigned long contactIdentfierValueResult = HidP_GetUsageValue(
+						HidP_Input,
+						HID_USAGE_PAGE_DIGITIZER,
+						i + 1,
+						HID_USAGE_DIGITIZER_CONTACT_IDENTIFIER,
+						&contactIdentifierValue,
+						devicePreparsedData,
+						(PCHAR)raw->data.hid.bRawData,
+						raw->data.hid.dwSizeHid
+					);
+
+					/* if (contactIdentfierValueResult == HIDP_STATUS_SUCCESS) {
+						print_line(vformat("Contact Identifier: %d", (unsigned int)contactIdentifierValue));
+					} */
 
 					// Get range of indices returned by HIDClass driver for buttons
-					ULONG buttonUsageRange = numButtonCaps;
+					ULONG usageLength = numButtonCaps;
 
 					// Get usages
-					LPBYTE usageBuffer = new BYTE[(int)(buttonUsageRange)];
+					LPBYTE usageBuffer = new BYTE[(int)(usageLength)]{0};
 					PUSAGE usageList = (PUSAGE)usageBuffer;
-
-
+					
 
 					unsigned long usageResult = HidP_GetUsages(
 					HidP_Input,
 					deviceInfo.hid.usUsagePage,
 					i + 1,
 					usageList,
-					&buttonUsageRange,
+					&usageLength,
 					devicePreparsedData,
 					(PCHAR)raw->data.hid.bRawData,
 					raw->data.hid.dwSizeHid
@@ -433,7 +433,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
 					}
 					print_line(vformat("Button Usage Range: %d", (unsigned int)buttonUsageRange)); */
 					bool hasTipSwitch = false;
-					for (int i = 0; i < buttonUsageRange; i++) {
+					for (int i = 0; i < usageLength; i++) {
 						//print_line(vformat("ON Button usage: %d", (unsigned int)usageList[i]));
 						if (usageList[i] == HID_USAGE_DIGITIZER_TIP_SWITCH) {
 							hasTipSwitch = true;
@@ -442,216 +442,51 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
 						//print_line(vformat("Button usage: %d", (unsigned int)buttonCaps[i].NotRange.Usage));
 					}
 					if (!hasTipSwitch) {
-						DeviceManager::get_singleton()->set_touch_position(i, -1, -1);
+						DeviceManager::get_singleton()->set_touch_position(contactIdentifierValue, -1, -1);
 						delete[] usageBuffer;
 						continue;
 					}
 
 
 
-					if (i < contactCountValue) {
-						ULONG xValue = 0;
-						unsigned long positionUsageValueResult = HidP_GetUsageValue(
-							HidP_Input,
-							HID_USAGE_PAGE_GENERIC,
-							i + 1,
-							HID_USAGE_GENERIC_X,
-							&xValue,
-							devicePreparsedData,
-							(PCHAR)raw->data.hid.bRawData,
-							raw->data.hid.dwSizeHid
-						);
+					
+					ULONG xValue = 0;
+					unsigned long positionUsageValueResult = HidP_GetUsageValue(
+						HidP_Input,
+						HID_USAGE_PAGE_GENERIC,
+						i + 1,
+						HID_USAGE_GENERIC_X,
+						&xValue,
+						devicePreparsedData,
+						(PCHAR)raw->data.hid.bRawData,
+						raw->data.hid.dwSizeHid
+					);
 
-						/* if (positionUsageValueResult == HIDP_STATUS_SUCCESS) {
-							print_line(vformat("X Usage, Usage value: %d", (unsigned int)xValue));
-						} */
+					/* if (positionUsageValueResult == HIDP_STATUS_SUCCESS) {
+						print_line(vformat("X Usage, Usage value: %d", (unsigned int)xValue));
+					} */
 
-						ULONG yValue = 0;
-						positionUsageValueResult = HidP_GetUsageValue(
-							HidP_Input,
-							HID_USAGE_PAGE_GENERIC,
-							i + 1,
-							HID_USAGE_GENERIC_Y,
-							&yValue,
-							devicePreparsedData,
-							(PCHAR)raw->data.hid.bRawData,
-							raw->data.hid.dwSizeHid
-						);
+					ULONG yValue = 0;
+					positionUsageValueResult = HidP_GetUsageValue(
+						HidP_Input,
+						HID_USAGE_PAGE_GENERIC,
+						i + 1,
+						HID_USAGE_GENERIC_Y,
+						&yValue,
+						devicePreparsedData,
+						(PCHAR)raw->data.hid.bRawData,
+						raw->data.hid.dwSizeHid
+					);
 
 
-						DeviceManager::get_singleton()->set_touch_position(i, (int)xValue, (int)yValue);
+					DeviceManager::get_singleton()->set_touch_position(contactIdentifierValue, (int)xValue, (int)yValue);
 
 						/* if (positionUsageValueResult == HIDP_STATUS_SUCCESS) {
 							print_line(vformat("Y Usage, Usage value: %d", (unsigned int)yValue));
 						} */
-					} /* else {
-						DeviceManager::get_singleton()->set_touch_position(i, -1, -1);
-					} */
 					delete[] usageBuffer;
 				}
 
-
-
-				//DeviceManager::get_singleton()->call("print", "INPUT DETECTED");
-
-				/* USHORT xUsageValueByteLength= valueCaps->BitSize * valueCaps->ReportCount;
-				xUsageValueByteLength = (int)(valueCaps->BitSize);
-
-				LPBYTE xUsageValueArrayBuffer = new BYTE[(int)(xUsageValueByteLength)]{0};
-				PCHAR xUsageValueArray = (PCHAR)xUsageValueArrayBuffer;
-
-				unsigned long xUsageValueArrayResult = HidP_GetUsageValueArray(
-					HidP_Input,
-					HID_USAGE_PAGE_GENERIC,
-					0,
-					HID_USAGE_GENERIC_Y,
-					xUsageValueArray,
-					xUsageValueByteLength,
-					devicePreparsedData,
-					(PCHAR)raw->data.hid.bRawData,
-					raw->data.hid.dwSizeHid * raw->data.hid.dwCount
-				);
-
-
-				if (xUsageValueArrayResult == HIDP_STATUS_SUCCESS) {
-					print_line(vformat("Test: %d", (unsigned int)xUsageValueArray[0]));
-				} */
-
-
-
-
-
-
-
-
-
-
-
-				/* ULONG value = 0;
-				for(int i = 0; i < caps.NumberInputValueCaps; i++)
-				{
-					value = 0;
-					unsigned long usageValueResult = HidP_GetUsageValue(
-						HidP_Input,
-						deviceInfo.hid.usUsagePage,
-						0,
-						valueCaps[i].Range.UsageMin,
-						&value,
-						devicePreparsedData,
-						(PCHAR)raw->data.hid.bRawData,
-						raw->data.hid.dwSizeHid * raw->data.hid.dwCount
-					);
-					switch (usageValueResult)
-					{
-					case HIDP_STATUS_INVALID_REPORT_LENGTH:
-						print_line("ERROR: Could not get usage value.");
-						print_line("The report length is not valid.");
-						break;
-					case HIDP_STATUS_INVALID_REPORT_TYPE:
-						print_line("ERROR: Could not get usage value.");
-						print_line("The specified report type is not valid.");
-						break;
-					case HIDP_STATUS_INCOMPATIBLE_REPORT_ID:
-						print_line("ERROR: Could not get usage value.");
-						print_line("The collection contains buttons on the specified usage page in a report of the specified type, but there are no such usages in the specified report.");
-						break;
-					case HIDP_STATUS_INVALID_PREPARSED_DATA:
-						print_line("ERROR: Could not get usage value.");
-						print_line("The preparsed data is not valid.");
-						break;
-					case HIDP_STATUS_USAGE_NOT_FOUND:
-						print_line("ERROR: Could not get usage value.");
-						print_line("The collection does not contain any buttons on the specified usage page in any report of the specified report type.");
-						break;
-					default:
-						print_line("Successfully obtained usage value.");
-						break;
-					}
-
-					bool usageValueSuccess = false;
-					if (usageValueResult == HIDP_STATUS_SUCCESS) {
-						print_line(vformat("Usage: %d, Usage value: %d", (unsigned int)valueCaps[i].Range.UsageMin, (unsigned int)value));
-						usageValueSuccess = true;
-					}
-
-
-					if (false) {
-						print_line("Getting usage value array");
-						USHORT usageValueByteLength= valueCaps->BitSize * valueCaps->ReportCount;
-						usageValueByteLength = (int)(valueCaps->BitSize);
-						//print_line(vformat("Bit size: %d", (unsigned int)usageValueByteLength));
-						//print_line(vformat("Usage value byte length: %d", (unsigned int)usageValueByteLength));
-
-						LPBYTE usageValueArrayBuffer = new BYTE[(int)(usageValueByteLength)]{0};
-						PCHAR usageValueArray = (PCHAR)usageValueArrayBuffer;
-
-						unsigned long usageValueArrayResult = HidP_GetUsageValueArray(
-							HidP_Input,
-							deviceInfo.hid.usUsagePage,
-							0,
-							valueCaps[i].Range.UsageMin,
-							usageValueArray,
-							usageValueByteLength,
-							devicePreparsedData,
-							(PCHAR)raw->data.hid.bRawData,
-							raw->data.hid.dwSizeHid * raw->data.hid.dwCount
-						);
-
-						switch (usageValueArrayResult)
-						{
-						case HIDP_STATUS_INVALID_REPORT_LENGTH:
-							print_line("ERROR: Could not get usage value array.");
-							print_line("The report length is not valid.");
-							break;
-						case HIDP_STATUS_INVALID_REPORT_TYPE:
-							print_line("ERROR: Could not get usage value array.");
-							print_line("The specified report type is not valid.");
-							break;
-						case HIDP_STATUS_NOT_VALUE_ARRAY:
-							print_line("ERROR: Could not get usage value array.");
-							print_line("The requested usage is not a usage value array.");
-							break;
-						case HIDP_STATUS_BUFFER_TOO_SMALL:
-							print_line("ERROR: Could not get usage value array.");
-							print_line("The UsageValue buffer is too small to hold the requested usage.");
-							break;
-						case HIDP_STATUS_INCOMPATIBLE_REPORT_ID:
-							print_line("ERROR: Could not get usage value array.");
-							print_line("The collection contains buttons on the specified usage page in a report of the specified type, but there are no such usages in the specified report.");
-							break;
-						case HIDP_STATUS_INVALID_PREPARSED_DATA:
-							print_line("ERROR: Could not get usage value array.");
-							print_line("The preparsed data is not valid.");
-							break;
-						case HIDP_STATUS_USAGE_NOT_FOUND:
-							print_line("ERROR: Could not get usage value array.");
-							print_line("The collection does not contain any buttons on the specified usage page in any report of the specified report type.");
-							break;
-						default:
-							print_line("Successfully obtained usage value array.");
-							break;
-						}
-
-
-
-						delete[] usageValueArrayBuffer;
-					}
-
-				} */
-
-				/* LPBYTE reportBuffer = new BYTE[caps.InputReportByteLength]{};
-				//reportBuffer[0] = (BYTE)HID_USAGE_DIGITIZER_TOUCH_PAD;
-				PVOID inputReportData = (PVOID)reportBuffer;
-
-				if (HidD_GetInputReport(hDevice, inputReportData, caps.InputReportByteLength) == false)
-				{
-					print_line(vformat("HidD_GetInputReport() failed. Error code: %d", (int)GetLastError()));
-				}
-
-				delete[] reportBuffer; */
-
-
-				delete[] reportBuffer;
 				delete[] valueCapsBuffer;
 				delete[] buttonCapsBuffer;
 				delete[] preparsedDataBuffer;

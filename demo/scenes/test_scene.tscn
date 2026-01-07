@@ -12,13 +12,17 @@ script = ExtResource("1_j8ivh")
 texture = ExtResource("2_nd71p")
 
 [node name="2" type="Sprite2D" parent="Sprites"]
+modulate = Color(1, 0, 0, 1)
 texture = ExtResource("2_nd71p")
 
 [node name="3" type="Sprite2D" parent="Sprites"]
+modulate = Color(0, 1, 0, 1)
 texture = ExtResource("2_nd71p")
 
 [node name="4" type="Sprite2D" parent="Sprites"]
+modulate = Color(0, 0, 1, 1)
 texture = ExtResource("2_nd71p")
 
 [node name="5" type="Sprite2D" parent="Sprites"]
+modulate = Color(0, 0, 0, 1)
 texture = ExtResource("2_nd71p")
