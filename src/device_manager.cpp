@@ -268,7 +268,7 @@ godot::Vector2 DeviceManager::get_touch_position(int index) {
 }
 
 
-void DeviceManager::set_touch_position(int index, int x, int y) {
+void DeviceManager::set_touch_position(int index, double x, double y) {
 	DeviceManager::touch_positions[index] = godot::Vector2(x, y);
 }
 
@@ -352,6 +352,17 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
 				if (getValueResult != HIDP_STATUS_SUCCESS) {
 					print_line(vformat("ERROR: Get button caps failed. Error code: %d", (unsigned int)getValueResult));
 				}
+				
+				LONG xMax = 0;
+				LONG yMax = 0;
+				for (int i = 0; i < numValueCaps; i++){
+					if (valueCaps[i].NotRange.Usage == HID_USAGE_GENERIC_X) {
+						xMax = valueCaps[i].LogicalMax;
+					}
+					if (valueCaps[i].NotRange.Usage == HID_USAGE_GENERIC_Y) {
+						yMax = valueCaps[i].LogicalMax;
+					}
+				}
 
 				//print_line(vformat("Value Caps ReportCount: %d", (unsigned int)valueCaps->ReportCount));
 				
@@ -387,7 +398,6 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
 						print_line(vformat("Contact Identifier: %d", (unsigned int)contactIdentifierValue));
 					} */
 
-					// Get range of indices returned by HIDClass driver for buttons
 					ULONG usageLength = HidP_MaxUsageListLength(HidP_Input, deviceInfo.hid.usUsagePage, devicePreparsedData);
 
 					// Get usages
@@ -444,12 +454,10 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
 						//print_line(vformat("Button usage: %d", (unsigned int)buttonCaps[i].NotRange.Usage));
 					}
 					if (!hasTipSwitch) {
-						DeviceManager::get_singleton()->set_touch_position(contactIdentifierValue, -1, -1);
+						DeviceManager::get_singleton()->set_touch_position(contactIdentifierValue, -1.0, -1.0);
 						delete[] usageBuffer;
 						continue;
 					}
-
-
 
 					
 					ULONG xValue = 0;
@@ -481,7 +489,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
 					);
 
 
-					DeviceManager::get_singleton()->set_touch_position(contactIdentifierValue, (int)xValue, (int)yValue);
+					DeviceManager::get_singleton()->set_touch_position(contactIdentifierValue, (double)xValue / double(xMax), (double)yValue / double(yMax));
 
 						/* if (positionUsageValueResult == HIDP_STATUS_SUCCESS) {
 							print_line(vformat("Y Usage, Usage value: %d", (unsigned int)yValue));

@@ -36,5 +36,5 @@ public:
 
 	WNDPROC getOrigWndProc();
 	godot::Vector2 get_touch_position(int index);
-	void set_touch_position(int index, int x, int y);
+	void set_touch_position(int index, double x, double y);
 };
