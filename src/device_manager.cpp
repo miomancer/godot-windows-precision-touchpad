@@ -1,5 +1,6 @@
 #include "device_manager.h"
 
+#include <algorithm>
 //#include <windows.h>
 //#include <hidsdi.h>
 
@@ -369,7 +370,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
 
 				//print_line(vformat("Contact Count: %d", (unsigned int)contactCountValue));
 
-				for (int i = 0; i < std::min((int)contactCountValue, 5); i++) {
+				for (int i = 0; i < (std::min)((int)contactCountValue, 5); i++) {
 					ULONG contactIdentifierValue = 0;
 					unsigned long contactIdentfierValueResult = HidP_GetUsageValue(
 						HidP_Input,
@@ -387,7 +388,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
 					} */
 
 					// Get range of indices returned by HIDClass driver for buttons
-					ULONG usageLength = numButtonCaps;
+					ULONG usageLength = HidP_MaxUsageListLength(HidP_Input, deviceInfo.hid.usUsagePage, devicePreparsedData);
 
 					// Get usages
 					LPBYTE usageBuffer = new BYTE[(int)(usageLength)]{0};
@@ -404,6 +405,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
 					(PCHAR)raw->data.hid.bRawData,
 					raw->data.hid.dwSizeHid
 					);
+
 					switch (usageResult)
 					{
 					case HIDP_STATUS_INVALID_REPORT_LENGTH:
