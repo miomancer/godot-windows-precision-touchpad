@@ -10,6 +10,7 @@ func _ready() -> void:
 	setup_tp()
 
 func _process(delta):
+	pass
 	if Input.is_action_just_pressed("ui_accept"):
 		print("ACCEPT")
 	if Input.is_action_just_pressed("ui_cancel"):

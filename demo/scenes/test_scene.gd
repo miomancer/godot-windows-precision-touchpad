@@ -5,26 +5,36 @@ var device_manager : DeviceManager
 
 
 func _ready() -> void:
+	#get_tree().set_auto_accept_quit(false)
 	#Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 	device_manager = DeviceManager.new()
 	#Engine.register_singleton(device_manager)
 	setup_tp()
 
 func _process(delta):
-	print([device_manager.get_touch_position(0),
-	device_manager.get_touch_position(1),
-	device_manager.get_touch_position(2),
-	device_manager.get_touch_position(3),
-	device_manager.get_touch_position(4)])
+	#print([device_manager.get_touch_position(0),
+	#device_manager.get_touch_position(1),
+	#device_manager.get_touch_position(2),
+	#device_manager.get_touch_position(3),
+	#device_manager.get_touch_position(4)])
 	
 	for i in range(sprites.get_child_count()):
 		var sprite = sprites.get_child(i)
 		if device_manager.get_touch_position(i).x > 0:
 			sprite.show()
 			sprite.position = device_manager.get_touch_position(i) * get_viewport_rect().size
+		else:
+			sprite.hide()
+
 
 func setup_tp():
 	var window_id = 0 # Default ID for the main window
 	var window_handle = DisplayServer.window_get_native_handle(DisplayServer.WINDOW_HANDLE, window_id)
 	device_manager.set_window(window_handle)
-	device_manager.register_touchpads()	
+	device_manager.register_touchpads()
+
+
+#func _notification(what):
+	#if what == NOTIFICATION_WM_CLOSE_REQUEST:
+		#device_manager = null
+		#get_tree().quit() # default behavior

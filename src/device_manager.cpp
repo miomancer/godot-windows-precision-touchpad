@@ -275,8 +275,16 @@ void DeviceManager::set_touch_position(int index, double x, double y) {
 
 LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
 	//print_line(vformat("Message type: %d", (int)uMsg));
+
 	switch(uMsg)
 	{
+		// If the application closes, we'll lose to the reference to the original wndproc, which will cause lag before crashing.
+		case WM_CLOSE:
+		{
+			WNDPROC origWndProc = DeviceManager::get_singleton()->getOrigWndProc();
+			SetWindowLongPtrW(hWnd, GWLP_WNDPROC, (LONG_PTR)*origWndProc);
+			return CallWindowProcW(origWndProc, hWnd, uMsg, wParam, lParam);
+		}
 		case WM_INPUT:
 		{
 			//print_line(vformat("Message recieved: %d", (int)uMsg));
@@ -394,10 +402,6 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
 						raw->data.hid.dwSizeHid
 					);
 
-					/* if (contactIdentfierValueResult == HIDP_STATUS_SUCCESS) {
-						print_line(vformat("Contact Identifier: %d", (unsigned int)contactIdentifierValue));
-					} */
-
 					ULONG usageLength = HidP_MaxUsageListLength(HidP_Input, deviceInfo.hid.usUsagePage, devicePreparsedData);
 
 					// Get usages
@@ -440,10 +444,6 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
 						break;
 					}
 
-					/* if (i == 0) {
-						print_line(vformat("Button Usage Range: %d", (unsigned int)buttonUsageRange));
-					}
-					print_line(vformat("Button Usage Range: %d", (unsigned int)buttonUsageRange)); */
 					bool hasTipSwitch = false;
 					for (int i = 0; i < usageLength; i++) {
 						//print_line(vformat("ON Button usage: %d", (unsigned int)usageList[i]));
@@ -472,10 +472,6 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
 						raw->data.hid.dwSizeHid
 					);
 
-					/* if (positionUsageValueResult == HIDP_STATUS_SUCCESS) {
-						print_line(vformat("X Usage, Usage value: %d", (unsigned int)xValue));
-					} */
-
 					ULONG yValue = 0;
 					positionUsageValueResult = HidP_GetUsageValue(
 						HidP_Input,
@@ -491,9 +487,6 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
 
 					DeviceManager::get_singleton()->set_touch_position(contactIdentifierValue, (double)xValue / double(xMax), (double)yValue / double(yMax));
 
-						/* if (positionUsageValueResult == HIDP_STATUS_SUCCESS) {
-							print_line(vformat("Y Usage, Usage value: %d", (unsigned int)yValue));
-						} */
 					delete[] usageBuffer;
 				}
 
@@ -504,13 +497,10 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
 
 			delete[] rawReportBuffer;
 			break;
-		/* else
-		{
-			TranslateMessage(&msg);
-			DispatchMessage(&msg);
-		}	 */
+
 		}
 	}
+
 	WNDPROC origWndProc = DeviceManager::get_singleton()->getOrigWndProc();
 	//DefWindowProcW(hWnd, uMsg, wParam, lParam);
 	return CallWindowProcW(origWndProc, hWnd, uMsg, wParam, lParam);
