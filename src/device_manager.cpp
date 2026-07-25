@@ -4,19 +4,22 @@
 //#include <windows.h>
 //#include <hidsdi.h>
 
+// Define local functions
 std::string wStringToString(const wchar_t* wstr, int size);
 std::string getDeviceName(HANDLE hDevice);
 void getDeviceInfo(PRAWINPUTDEVICELIST pRawInputDeviceList, int index, RID_DEVICE_INFO* deviceInfo);
 void getDevicePreparsedData(PRAWINPUTDEVICELIST pRawInputDeviceList, int index, PHIDP_PREPARSED_DATA devicePreparsedData);
-LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
+LRESULT CALLBACK touchpadWndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
 
+// Bind every method that will be used through the GDScript API
 void DeviceManager::_bind_methods() {
 	godot::ClassDB::bind_method(godot::D_METHOD("get_device_list"), &DeviceManager::get_device_list);
 	godot::ClassDB::bind_method(godot::D_METHOD("get_touch_position", "index"), &DeviceManager::get_touch_position);
-	godot::ClassDB::bind_method(godot::D_METHOD("set_window", "window_handle"), &DeviceManager::set_window);
+	godot::ClassDB::bind_method(godot::D_METHOD("replace_window_procedure", "window_handle"), &DeviceManager::replace_window_procedure);
 	godot::ClassDB::bind_method(godot::D_METHOD("register_touchpads"), &DeviceManager::register_touchpads);
 }
 
+// Class constructor
 DeviceManager::DeviceManager() {
 	singleton = this;
 	this->touch_positions.resize(5);
@@ -24,10 +27,14 @@ DeviceManager::DeviceManager() {
 		this->touch_positions[i] = godot::Vector2(-1, -1);
 	}
 }
+
+// Class destructor
 DeviceManager::~DeviceManager() {
 	singleton = nullptr;
 }
 
+
+// Convert from the string format used in Windows API
 std::string wStringToString(const wchar_t* wstr, int size)
 {
 	std::string str = "";
@@ -38,13 +45,6 @@ std::string wStringToString(const wchar_t* wstr, int size)
 	}
 	//wcstombs_s(&size, &str[0], str.size() + 1, wstr.c_str(), wstr.size());
 	return str;
-}
-
-
-void getHidDPreparsedData(HANDLE hDevice, PHIDP_PREPARSED_DATA devicePreparsedData) {
-	if (HidD_GetPreparsedData(hDevice, &devicePreparsedData) == false) {
-		print_line(vformat("ERROR: Could not get HidD preparsed data. Error code: %d", (int)GetLastError()));
-	}
 }
 
 void getDevicePreparsedData(HANDLE hDevice, PHIDP_PREPARSED_DATA devicePreparsedData, UINT pcbSize) {
@@ -64,12 +64,6 @@ void getDeviceInfo(HANDLE hDevice, RID_DEVICE_INFO* deviceInfo) {
 	UINT uiCommand = RIDI_DEVICEINFO;
 	UINT pcbSize = 0;
 	int bytesRead = GetRawInputDeviceInfoW(hDevice, uiCommand, NULL, &pcbSize);
-	/* if (bytesRead == (UINT)-1)
-	{
-		return "";
-	} */
-
-	//std::cout << "Name size (in characters): " + std::to_string((int)pcbSize) << std::endl;
 
 	// Using a wide character array here is extremely important, Win32 W functions use UTF-16 strings (kinda)
 
@@ -92,8 +86,6 @@ std::string getDeviceName(HANDLE hDevice) {
 		return "";
 	}
 
-	//std::cout << "Name size (in characters): " + std::to_string((int)pcbSize) << std::endl;
-
 	// Using a wide character array here is extremely important, Win32 W functions use UTF-16 strings (kinda)
 	wchar_t* szDeviceName = new wchar_t[pcbSize];
 
@@ -111,18 +103,12 @@ std::string getDeviceName(HANDLE hDevice) {
 	return deviceName;
 }
 
-int DeviceManager::set_window(int64_t window_handle) {
+int DeviceManager::replace_window_procedure(int64_t window_handle) {
 	DeviceManager::windowHandle = (HWND)IntToPtr(window_handle);
 
 	DeviceManager::origWndProc = (WNDPROC)GetWindowLongPtrW(DeviceManager::windowHandle, GWLP_WNDPROC);
 
-	SetWindowLongPtrW(DeviceManager::windowHandle, GWLP_WNDPROC, (LONG_PTR)*WndProc);
-	
-	/* if (RegisterTouchWindow(DeviceManager::windowHandle, TWF_FINETOUCH | TWF_WANTPALM) == 0) {
-		print_line(vformat("ERROR: Touch window registration failed. Error code: %d", (int)GetLastError()));
-	}
-
-	print_line(vformat("Max touches: %d", GetSystemMetrics(SM_MAXIMUMTOUCHES))); */
+	SetWindowLongPtrW(DeviceManager::windowHandle, GWLP_WNDPROC, (LONG_PTR)*touchpadWndProc);
 
 	return 0;
 }
@@ -143,18 +129,6 @@ int DeviceManager::register_touchpads() {
 		//registration failed. Call GetLastError for the cause of the error.
 		print_line(vformat("ERROR: Could not register touchpads. Error code: %d", (int)GetLastError()));
 	}
-
-
-	/* MSG msg;
-	int i = 0;
-    while (GetMessage(&msg, NULL, 0, 0) > 0 && i < 100)
-    {
-		print_line(vformat("Message type: %d", (int)msg.message));
-        TranslateMessage(&msg);
-        DispatchMessage(&msg);
-		i += 1;
-    } */
-
 
 	return 0;
 }
@@ -216,7 +190,7 @@ godot::Array DeviceManager::get_device_list() {
 			continue;
 		}
 		// If you've made it this far, you're a trackpad
-		print_line("This is a trackpad!");
+		print_line("Trackpad detected.");
 
 		UINT pcbSize = 0;
 		int bytesRead = GetRawInputDeviceInfoW(hDevice, RIDI_PREPARSEDDATA, NULL, &pcbSize);
@@ -228,32 +202,6 @@ godot::Array DeviceManager::get_device_list() {
 		if (HidP_GetCaps(devicePreparsedData, &caps) != HIDP_STATUS_SUCCESS) {
 			print_line("The specified preparsed data is invalid. ");
 		}
-		
-		/* ULONG tipSwitchValue = 0;
-		unsigned long tipSwitchUsageValueResult = HidP_GetUsageValue(
-			HidP_Input,
-			HID_USAGE_PAGE_DIGITIZER,
-			i,
-			HID_USAGE_DIGITIZER_TIP_SWITCH,
-			&tipSwitchValue,
-			devicePreparsedData,
-			cap,
-			caps.FeatureReportByteLength
-		);
-
-		if (tipSwitchUsageValueResult == HIDP_STATUS_SUCCESS) {
-			print_line(vformat("Tip Switch: %d", (unsigned int)tipSwitchValue));
-		} else {
-			print_line("Could not get Tip Switch.");
-		}data.hid.dwSizeHid
-
-		delete[] preparsedDataBuffer; */
-
-		/* PHIDP_PREPARSED_DATA devicePreparsedData = PHIDP_PREPARSED_DATA();
-		getDevicePreparsedData(hDevice, devicePreparsedData);
-		HIDP_CAPS caps = HIDP_CAPS();
-		HidP_GetCaps(devicePreparsedData, &caps);
-		print_line(vformat("Trackpad NumberInputButtonCaps: %d", (int)caps.NumberInputButtonCaps)); */
 	}
 	delete[] pRawInputDeviceList;
 	return deviceList;
@@ -273,7 +221,7 @@ void DeviceManager::set_touch_position(int index, double x, double y) {
 }
 
 
-LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
+LRESULT CALLBACK touchpadWndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
 	//print_line(vformat("Message type: %d", (int)uMsg));
 
 	switch(uMsg)
@@ -501,7 +449,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
 		}
 	}
 
+	// Call the original window procedure, chaining the callback methods
 	WNDPROC origWndProc = DeviceManager::get_singleton()->getOrigWndProc();
-	//DefWindowProcW(hWnd, uMsg, wParam, lParam);
 	return CallWindowProcW(origWndProc, hWnd, uMsg, wParam, lParam);
 }

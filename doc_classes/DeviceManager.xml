@@ -22,11 +22,11 @@
 				Returns a touch position at a specified index.
 			</description>
 		</method>
-		<method name="set_window">
+		<method name="replace_window_procedure">
 			<param index="0" name="window_handle" type="int" />
 			<return type="int" />
 			<description>
-				Sets the window to the provided window handle.
+				Replaces the window prodecure of the provided window handle.
 			</description>
 		</method>
 		<method name="register_touchpads">

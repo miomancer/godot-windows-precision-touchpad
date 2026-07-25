@@ -32,7 +32,7 @@ public:
 
 	godot::Array get_device_list();
 	int register_touchpads();
-	int set_window(int64_t window_handle);
+	int replace_window_procedure(int64_t window_handle);
 
 	WNDPROC getOrigWndProc();
 	godot::Vector2 get_touch_position(int index);
