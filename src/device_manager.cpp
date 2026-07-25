@@ -212,6 +212,9 @@ WNDPROC DeviceManager::getOrigWndProc() {
 }
 
 godot::Vector2 DeviceManager::get_touch_position(int index) {
+	if (index < 0 || index >= 5) {
+		return godot::Vector2(-1.0, -1.0);
+	}
 	return this->touch_positions[index];
 }
 
