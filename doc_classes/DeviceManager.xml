@@ -1,10 +1,10 @@
 <?xml version="1.0" encoding="UTF-8" ?>
-<class name="DeviceManager" inherits="RefCounted" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/godotengine/godot/master/doc/class.xsd">
+<class name="TouchpadManager" inherits="RefCounted" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/godotengine/godot/master/doc/class.xsd">
 	<brief_description>
-		Device manager class.
+		Touchpad manager class.
 	</brief_description>
 	<description>
-		A class for managing connected devices.
+		A class for managing Windows Precision Touchpad raw input.
 	</description>
 	<tutorials>
 	</tutorials>
@@ -33,6 +33,12 @@
 			<return type="int" />
 			<description>
 				Registers touchpads to the current window.
+			</description>
+		</method>
+		<method name="update_touchpad_inputs">
+			<return type="int" />
+			<description>
+				Reads the raw touchpad inputs and updates the touch position values.
 			</description>
 		</method>
 	</methods>

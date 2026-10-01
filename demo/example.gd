@@ -1,12 +1,12 @@
 extends Node
 
-var device_manager : DeviceManager
+var  : TouchpadManager
 
 
 func _ready() -> void:
 	#Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
-	device_manager = DeviceManager.new()
-	#Engine.register_singleton(device_manager)
+	 = TouchpadManager.new()
+	#Engine.register_singleton()
 	setup_tp()
 
 func _process(delta):
@@ -15,14 +15,14 @@ func _process(delta):
 		print("ACCEPT")
 	if Input.is_action_just_pressed("ui_cancel"):
 		print("CANCEL")
-	print([device_manager.get_touch_position(0),
-	device_manager.get_touch_position(1),
-	device_manager.get_touch_position(2),
-	device_manager.get_touch_position(3),
-	device_manager.get_touch_position(4)])
+	print([.get_touch_position(0),
+	.get_touch_position(1),
+	.get_touch_position(2),
+	.get_touch_position(3),
+	.get_touch_position(4)])
 
 func setup_tp():
 	var window_id = 0 # Default ID for the main window
 	var window_handle = DisplayServer.window_get_native_handle(DisplayServer.WINDOW_HANDLE, window_id)
-	device_manager.replace_window_procedure(window_handle)
-	device_manager.register_touchpads()
+	.replace_window_procedure(window_handle)
+	.register_touchpads()

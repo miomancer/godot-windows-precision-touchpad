@@ -1,28 +1,28 @@
 extends Node2D
 
-var device_manager : DeviceManager
+var  : TouchpadManager
 @onready var sprites = $Sprites
 
 
 func _ready() -> void:
 	#get_tree().set_auto_accept_quit(false)
 	#Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
-	device_manager = DeviceManager.new()
-	#Engine.register_singleton(device_manager)
+	 = TouchpadManager.new()
+	#Engine.register_singleton()
 	setup_tp()
 
 func _process(delta):
-	#print([device_manager.get_touch_position(0),
-	#device_manager.get_touch_position(1),
-	#device_manager.get_touch_position(2),
-	#device_manager.get_touch_position(3),
-	#device_manager.get_touch_position(4)])
+	#print([.get_touch_position(0),
+	#.get_touch_position(1),
+	#.get_touch_position(2),
+	#.get_touch_position(3),
+	#.get_touch_position(4)])
 	
 	for i in range(sprites.get_child_count()):
 		var sprite = sprites.get_child(i)
-		if device_manager.get_touch_position(i).x > 0:
+		if .get_touch_position(i).x > 0:
 			sprite.show()
-			sprite.position = device_manager.get_touch_position(i) * get_viewport_rect().size
+			sprite.position = .get_touch_position(i) * get_viewport_rect().size
 		else:
 			sprite.hide()
 
@@ -30,11 +30,11 @@ func _process(delta):
 func setup_tp():
 	var window_id = 0 # Default ID for the main window
 	var window_handle = DisplayServer.window_get_native_handle(DisplayServer.WINDOW_HANDLE, window_id)
-	device_manager.replace_window_procedure(window_handle)
-	device_manager.register_touchpads()
+	.replace_window_procedure(window_handle)
+	.register_touchpads()
 
 
 #func _notification(what):
 	#if what == NOTIFICATION_WM_CLOSE_REQUEST:
-		#device_manager = null
+		# = null
 		#get_tree().quit() # default behavior

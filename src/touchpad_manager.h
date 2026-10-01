@@ -1,6 +1,6 @@
 #pragma once
 
-#include "godot_cpp/classes/ref_counted.hpp"
+#include "godot_cpp/classes/node.hpp"
 #include "godot_cpp/classes/wrapped.hpp"
 #include "godot_cpp/variant/variant.hpp"
 
@@ -14,9 +14,9 @@ extern "C"
 
 using namespace godot;
 
-class DeviceManager : public godot::RefCounted {
-	GDCLASS(DeviceManager, godot::RefCounted)
-	static DeviceManager *singleton;
+class TouchpadManager : public godot::Node {
+	GDCLASS(TouchpadManager, godot::Node)
+	static TouchpadManager *singleton;
 
 protected:
 	static void _bind_methods();
@@ -25,10 +25,10 @@ protected:
 	godot::Array touch_positions;
 
 public:
-	DeviceManager();
-	~DeviceManager() override;
+	TouchpadManager();
+	~TouchpadManager() override;
 
-	static DeviceManager *get_singleton();
+	static TouchpadManager *get_singleton();
 
 	godot::Array get_device_list();
 	int register_touchpads();
@@ -37,4 +37,5 @@ public:
 	WNDPROC getOrigWndProc();
 	godot::Vector2 get_touch_position(int index);
 	void set_touch_position(int index, double x, double y);
+	void update_touchpad_inputs();
 };
