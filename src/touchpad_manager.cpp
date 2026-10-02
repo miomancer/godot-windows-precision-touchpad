@@ -10,13 +10,14 @@ std::string getDeviceName(HANDLE hDevice);
 void getDeviceInfo(PRAWINPUTDEVICELIST pRawInputDeviceList, int index, RID_DEVICE_INFO* deviceInfo);
 void getDevicePreparsedData(PRAWINPUTDEVICELIST pRawInputDeviceList, int index, PHIDP_PREPARSED_DATA devicePreparsedData);
 void processRawInput(LPARAM lParam);
+void getTouchpadRawInputs();
 LRESULT CALLBACK touchpadWndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
 
 // Bind every method that will be used through the GDScript API
 void TouchpadManager::_bind_methods() {
 	godot::ClassDB::bind_method(godot::D_METHOD("get_device_list"), &TouchpadManager::get_device_list);
 	godot::ClassDB::bind_method(godot::D_METHOD("get_touch_position", "index"), &TouchpadManager::get_touch_position);
-	godot::ClassDB::bind_method(godot::D_METHOD("replace_window_procedure", "window_handle"), &TouchpadManager::replace_window_procedure);
+	godot::ClassDB::bind_method(godot::D_METHOD("replace_window_procedure"), &TouchpadManager::replace_window_procedure);
 	godot::ClassDB::bind_method(godot::D_METHOD("register_touchpads"), &TouchpadManager::register_touchpads);
 	godot::ClassDB::bind_method(godot::D_METHOD("update_touchpad_inputs"), &TouchpadManager::update_touchpad_inputs);
 }
@@ -33,6 +34,26 @@ TouchpadManager::TouchpadManager() {
 // Class destructor
 TouchpadManager::~TouchpadManager() {
 	singleton = nullptr;
+}
+
+
+// void TouchpadManager::_ready() {
+// 	// Get the window handle of the main window (id 0)
+// 	int64_t main_window_handle = DisplayServer::get_singleton()->window_get_native_handle(DisplayServer::WINDOW_HANDLE, 0);
+// 	TouchpadManager::windowHandle = (HWND)IntToPtr(main_window_handle);
+// 	print_line(vformat("Main window handle: %d", main_window_handle));
+// }
+
+void TouchpadManager::_notification(int p_what) {
+	switch (p_what) {
+		case NOTIFICATION_READY: {
+			// Get the window handle of the main window (id 0)
+			int64_t main_window_handle = DisplayServer::get_singleton()->window_get_native_handle(DisplayServer::WINDOW_HANDLE, 0);
+			TouchpadManager::windowHandle = (HWND)IntToPtr(main_window_handle);
+			print_line(vformat("Main window handle: %d", main_window_handle));
+			TouchpadManager::register_touchpads();
+		}
+	}
 }
 
 
@@ -105,9 +126,7 @@ std::string getDeviceName(HANDLE hDevice) {
 	return deviceName;
 }
 
-int TouchpadManager::replace_window_procedure(int64_t window_handle) {
-	TouchpadManager::windowHandle = (HWND)IntToPtr(window_handle);
-
+int TouchpadManager::replace_window_procedure() {
 	TouchpadManager::origWndProc = (WNDPROC)GetWindowLongPtrW(TouchpadManager::windowHandle, GWLP_WNDPROC);
 
 	SetWindowLongPtrW(TouchpadManager::windowHandle, GWLP_WNDPROC, (LONG_PTR)*touchpadWndProc);
@@ -250,6 +269,7 @@ LRESULT CALLBACK touchpadWndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lPa
 	return CallWindowProcW(origWndProc, hWnd, uMsg, wParam, lParam);
 }
 
+// Update touchpad positions based on a raw input message's data
 void processRawInput(LPARAM lParam) {
 	//print_line(vformat("Message recieved: %d", (int)uMsg));
 
@@ -351,7 +371,7 @@ void processRawInput(LPARAM lParam) {
 		);
 
 
-		//print_line(vformat("Contact Count: %d", (unsigned int)contactCountValue));
+		print_line(vformat("Contact Count: %d", (unsigned int)contactCountValue));
 
 		for (int i = 0; i < (std::min)((int)contactCountValue, 5); i++) {
 			ULONG contactIdentifierValue = 0;
@@ -464,7 +484,7 @@ void processRawInput(LPARAM lParam) {
 
 // Peeks every WM_INPUT message, getting touchpad info from the relevant events.
 void getTouchpadRawInputs() {
-	print_line("Getting raw inputs.");
+	//print_line("Getting raw inputs.");
 	MSG msg = {};
 	int inputs_found = 0;
 	while (PeekMessageW(&msg, NULL, WM_INPUT, WM_INPUT, PM_REMOVE)) {
@@ -473,10 +493,10 @@ void getTouchpadRawInputs() {
 		DispatchMessageW(&msg);
 		inputs_found += 1;
 	}
-	print_line(vformat("Inputs found: %d", inputs_found));
+	//print_line(vformat("Inputs found: %d", inputs_found));
 }
 
-// Peeks every WM_INPUT message, getting touchpad info from the relevant events.
+// Updates touchpad positions from raw inputs.
 void TouchpadManager::update_touchpad_inputs() {
 	getTouchpadRawInputs();
 }
